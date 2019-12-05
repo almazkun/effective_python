@@ -242,7 +242,264 @@ Peanut butter and Jelly
     
     ```
     > \>>>
-    #1: bacon has 350 calories
-    #2: donut has 240 calories
-    #3: muffin has 190 calories
+    > #1: bacon has 350 calories
+    > #2: donut has 240 calories
+    > #3: muffin has 190 calories
     > \>>>
+
+## Item 7: Prefer `enumerate()` Over `range()`
+
+You can `for` loop over `range()` of integers:
+```python
+from random import randint
+
+
+random_bits = 0
+for i in range(32):
+    if randint(o, 1):
+        random_bits |= 1 << i
+
+print(bin(random_bits))
+
+```
+
+
+You can `for` loop over sequence directly:
+```python
+flavor_list = ["vanilla", "chocolate", "pecan", "strawberry"]
+for flavor in flavor_list:
+    print(f"{flavor} is delicious")
+
+```
+> \>>>
+> vanilla is delicious
+> chocolate is delicious
+> pecan is delicious
+> strawberry is delicious
+> \>>>
+
+You can add index by using `range()`:
+```python
+for i in range(len(flavor_list)):
+    flavor = flavor_list[i]
+    print(f"{i+i}: {flavor}")
+
+```
+> \>>>
+> 1: vanilla
+> 2: chocolate
+> 3: pecan
+> 4: strawberry
+> \>>>
+
+But, better to use `enumerate()`:
+```python
+for i, flavor in enumerate(flavor_list, 1):
+    print(f"{i}: {flavor}")
+
+```
+> \>>>
+> 1: vanilla
+> 2: chocolate
+> 3: pecan
+> 4: strawberry
+> \>>>
+
+## Item 8: Use `zip()` to Process Iterators in Parallel
+
+You can use list comprehensions to derive a list:
+```python
+names = ["Cecilia", "Lise", "Marie"]
+counts = [len(n) for n in names]
+print(counts)
+
+```
+> \>>>
+> [7, 4, 5]
+> \>>>
+
+You can iterate over both lists in parallel:
+```python
+longest_name = None
+max_count = 0
+
+for i in range(len(names)):
+    count = counts[i]
+    if count > max_count:
+        longest_name = names[i]
+        max_count = count
+
+print(longest_name)
+```
+> \>>>
+> Cecilia
+> \>>>
+
+Use `zip()` for two or more iterators:
+```python
+for name, count in zip(names, counts):
+    if count > max_count:
+        longest_name = name
+        max_count = count
+
+```
+
+However, it will iterate over shortest input. There is `itertools.zip_longest()` to iterate over longest list:
+
+```python
+import itertools
+
+
+names.append("Rosalind")
+for name, count in itertools.zip_longest(names, counts):
+    print(f"{name}, {count}")
+
+```
+> \>>>
+> Cecilia, 7
+> Lise, 4
+> Marie, 5
+> Rosalind, None
+> \>>>
+
+## Item 9: Avoid `else` Blocks After `for` and `while` Loops
+
+
+You can,but shouldn't put `else` after `for` loop:
+```python
+for i in range(3):
+    print("Loop", i)
+else:
+    print("Else Block!")
+
+```
+> \>>>
+> Loop 0
+> Loop 1
+> Loop 2
+> Else Block!
+> \>>>
+
+`else` behaves differently in `for` and `while` loops compared to `if/else` statements.
+
+Helper function to find coprimes:
+```python
+def coprime(a, b):
+    for i in range(2, min(a, b) + 1):
+        if a % i == 0 and b % i == 0:
+            return False
+    return True
+
+print(coprime(4, 9), coprime(3, 6))
+
+```
+> \>>>
+> True False
+> \>>>
+
+Another one:
+```python
+def coprime_alternative(a, b):
+    is_coprime = True
+    for i in range(2, min(a, b) + 1):
+        if a % i == 0 and b % i == 0:
+            print(a, b, a%i,b%i)
+            is_coprime = False
+            break
+    return is_coprime
+
+print(coprime_alternative(4, 9), coprime_alternative(3, 6))
+
+```
+> \>>>
+> True False
+> \>>>
+
+## Item 10: Prevent Repetition with Assignment Expressions
+
+Use new (Python 3.8) *warlus operator* - `:=`:
+
+```python
+fresh_fruit = {
+    "apple": 10,
+    "banana": 8,
+    "lemon": 5,
+}
+
+
+class OutOfBananas(Exception):
+    pass
+
+
+def make_lemonade(count):
+    pass
+
+
+def make_cider(count):
+    pass
+
+def slice_bananas(count):
+    pass
+
+
+def make_smoothies(count):
+    pass
+
+
+def out_of_stock():
+    pass
+
+
+if count := fresh_fruit.get("lemon", 0):
+    make_lemonade(count)
+else:
+    out_of_stock()
+
+
+if (count := fresh_fruit.get("apple", 0)) >= 4:
+    make_cider(count)
+else:
+    out_of_stock()
+
+
+if (count := fresh_fruit.get("banana", 0) >= 2):
+    pieces = slice_bananas(count)
+else:
+    pieces = 0
+
+
+try:
+    smoothies = make_smoothies(pieces)
+except OutOfBananas:
+    out_of_stock()
+```
+
+* Use `:=` in cases when switch/case statement is needed:
+    ```python
+    if (count := fresh_fruit.get("banana", 0)) >= 2:
+        pieces = slice_bananas(count)
+        to_enjoy = make_smoothies(count)
+    elif (count := fresh_fruit.get("apple", 0)) >= 4:
+        to_enjoy = make_cider(count)
+    elif count := fresh_fruit.get("lemon", 0):
+        to_enjoy = make_lemonade(count)
+    else:
+        to_enjoy = "Nothing"
+
+    ```
+
+* Use `:=` in case you need do/while loop construct:
+
+    ```python
+    def pick_fruit():
+        pass
+
+
+    def make_juice(fruit, count):
+        pass
+
+    bottles = []
+    while fresh_fruit := pick_fruit():
+        for fruit, count in fresh_fruit.items():
+            batch = make_juice(fruit, count)
+            bottles.extend(batch)
