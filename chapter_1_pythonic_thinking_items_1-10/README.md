@@ -85,7 +85,7 @@ def to_bytes(bytes_or_str):
 
 Use `"rb"` and `"wb"`
 
-## Prefer Interpolated F-String Over C-style Format Strings and `str.format`
+## Item 4: Prefer Interpolated F-String Over C-style Format Strings and `str.format`
 
 #### Don't use C-style formating
 ```python
