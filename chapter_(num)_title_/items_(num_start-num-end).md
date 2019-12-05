@@ -7,9 +7,17 @@ Some message to remember
 > python (code prime example)
 
 
-## item 2: Follow the PEP 8 Style Guide
+## item (NUM+1): {TITLE.next())
 
 Whitespace matters
+
+> * Use 4 [spaces]
+> * no more than 79 lines in 
+> * 
+> * 
+> * 
+> * 
+> * 
 
 Naming
 
