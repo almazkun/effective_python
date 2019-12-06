@@ -91,14 +91,10 @@ def all():
 #~~~~~~~~~~~~~~~~~~~~~~
 
 def pick_fruit():
-    print(counter)
-    counter += 1
     print("Pick_fruit picked")
 
 
 def make_juice(fruit, count):
-    print(counter)
-    counter += 1
     print(counter, "juice made")
     
 
