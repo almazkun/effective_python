@@ -503,3 +503,6 @@ except OutOfBananas:
         for fruit, count in fresh_fruit.items():
             batch = make_juice(fruit, count)
             bottles.extend(batch)
+
+
+### [Back to repo](https://github.com/almazkun/effective_python)
