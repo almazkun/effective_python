@@ -3,8 +3,9 @@
 ## Item 1: Know Which Version of Python You’re Using
 
 Use Python 3
-
-> ``python --version``
+```bash
+python --version
+```
 
 ```python
     import sys

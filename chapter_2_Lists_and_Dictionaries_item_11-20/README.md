@@ -42,3 +42,50 @@ print("No change:", a)
     After:     ['d', 99, 'f', 'g', 'h']
     No change: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
+However, when in assignments, slice replaces the specific range in original `list`.
+Also, the length dose not matter, it will shrink or got longer:
+
+```python
+print("Before:", a)
+a[2:7] = [99, 00, 888]
+print("After:", a)
+```
+    >>>
+    Before: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+    After: ['a', 'b', 99, 0, 888, 'h']
+
+To copy the `list` you can use:
+```python
+b = a[:]
+```
+
+You can replace entire list using this assignment:
+```python
+b = a
+print("Before a: ", a)
+print("Before b: ", b)
+a[:] = [101, 102, 103]
+print("After a:", a)
+print("After b:", b)
+```
+    >>>
+    Before a:  ['a', 'b', 47, 11, 22, 14, 'h']
+    Before b:  ['a', 'b', 47, 11, 22, 14, 'h']
+    After a: [101, 102, 103]
+    After b: [101, 102, 103]
+
+## Item 12: Avoid Striding and Slicing in a Single Expression 
+
+You can stride sequence using following logic: 
+```python
+somelist = [start:end:stride]
+
+x = ["red", "orange", "yellow", "green", "blue", "purple"]
+odds = x[::2]
+evens = x[1::2]
+print(odds)
+print(evens)
+```
+    >>>
+    ['red', 'yellow', 'blue']
+    ['orange', 'green', 'purple']
