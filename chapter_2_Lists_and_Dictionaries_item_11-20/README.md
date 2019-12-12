@@ -221,3 +221,6 @@ print("Row count:", len(rows))
     Row count: 200
 
 **Note** Be careful to use stared expressions on long iterations, because it might eat all your memory. 
+
+
+* [Back to repo](https://github.com/almazkun/effective_python#effective_python)

@@ -505,4 +505,4 @@ except OutOfBananas:
             bottles.extend(batch)
 
 
-* [Back to repo](https://github.com/almazkun/effective_python)
+* [Back to repo](https://github.com/almazkun/effective_python#effective_python)
