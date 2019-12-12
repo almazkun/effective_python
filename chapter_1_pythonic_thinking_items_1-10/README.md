@@ -8,11 +8,11 @@ python --version
 ```
 
 ```python
-    import sys
+import sys
 
 
-    print(sys.version_info)
-    print(sys.version)
+print(sys.version_info)
+print(sys.version)
 ```
 
 ## Item 2: Follow the PEP 8 Style Guide
@@ -365,7 +365,6 @@ for name, count in itertools.zip_longest(names, counts):
 
 ## Item 9: Avoid `else` Blocks After `for` and `while` Loops
 
-
 You can,but shouldn't put `else` after `for` loop:
 ```python
 for i in range(3):
@@ -506,4 +505,4 @@ except OutOfBananas:
             bottles.extend(batch)
 
 
-### [Back to repo](https://github.com/almazkun/effective_python)
+* [Back to repo](https://github.com/almazkun/effective_python)
