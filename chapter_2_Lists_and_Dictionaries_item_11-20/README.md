@@ -340,7 +340,32 @@ print(winner)
     {'otter': 1, 'bear': 2, 'fox': 3}
     otter
 
+It is all good, ut if later the requirements have changes and now you need to show results in alphabetical order. To do so, you might use `collections.abc` built-in method:
+```python
+from collections.abc import MutableMapping
 
+
+class SortedDict(MutableMapping):
+    def __init__(self):
+        self.date = {}
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+    
+    def __delitem__(self, key)
+        del self.date[key]
+
+    def __iter__(self):
+        keys = list(self.data.keys())
+        keys.sort()
+        for key in keys:
+            yield key
+
+    def __len__(self):
+        return len(self.data)
 
 
 
