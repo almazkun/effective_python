@@ -223,4 +223,130 @@ print("Row count:", len(rows))
 **Note** Be careful to use stared expressions on long iterations, because it might eat all your memory. 
 
 
-* [Back to repo](https://github.com/almazkun/effective_python#effective_python)
+## Item 14: Sort by Complex Criteria Using `key` Parameter
+
+* Use `sort()` method to sort built-in types which has a natural ordering to them:
+```python
+numbers = [93, 46, 75, 33, 0, 23, 33]
+numbers.sort()
+print(numbers)
+```
+    >>>
+    [0, 23, 33, 33, 46, 75, 93]
+
+* `sort()` do not work directly on objects. You need to use `key` parameter, which accepts function:
+```python
+class Tool():
+    def __init__(self, name, weight):
+        self.name = name
+        self.weight = weight
+
+    def __repr__(self):
+        return f"Tool({self.name!r}, {self.weight})"
+
+
+tools = [
+    Tool("level", 3.5),
+    Tool("hammer", 1.25),
+    Tool("screwdriver", 0.5),
+    Tool("chisel", 0.25),
+]
+
+print("Unsorted:", repr(tools))
+tools.sort(key=lambda x: x.name)
+print("\nSorted:", tools)
+```
+
+    >>>
+    Unsorted: [Tool('level', 3.5), Tool('hammer', 1.25), Tool('screwdriver', 0.5), Tool('chisel', 0.25)]
+    
+    Sorted: [Tool('chisel', 0.25), Tool('hammer', 1.25), Tool('level', 3.5), Tool('screwdriver', 0.5)]
+
+* For `str` you may want to lower case each item in a list to ensure that they are in alphabetical order:
+```python
+places = ["home", "work", "New York", "Paris"]
+places.sort()
+print("Case sensitive:", places)
+places.sort(key=lambda x: x.lower())
+print("Case insensitive:", places)
+```
+    >>>
+    Case sensitive: ['New York', 'Paris', 'home', 'work']
+    Case insensitive: ['home', 'New York', 'Paris', 'work']
+
+* for sorting with multiple criteria you may use `key` parameter returning `tuple` containing two attributes in required order:
+```python
+power_tools = [
+    Tool('drill', 4),
+    Tool('circular saw', 5),
+    Tool('jackhammer', 40),
+    Tool('sander', 4),
+]
+
+power_tools.sort(key=lambda x: (x.weight, x.name))
+print(power_tools)
+```
+    >>>
+    [Tool('drill', 4), Tool('sander', 4), Tool('circular saw', 5), Tool('jackhammer', 40)]
+
+* Negation on `int`'s may be used to sort in different directions:
+```python
+power_tools.sort(key=lambda x: (-x.weight, x.name))
+print(power_tools)
+```
+    >>>
+    [Tool('jackhammer', 40), Tool('circular saw', 5), Tool('drill', 4), Tool('sander', 4)]
+
+* To combine mane sorting criteria and different directions combine `sort` function calls following way and use `reverse` for changing direction:
+```python
+power_tools.sort(key=lambda x: x.name)
+power_tools.sort(key=lambda x: x.weight, reverse=True)
+print(power_tools)
+```
+    >>>
+    [Tool('jackhammer', 40), Tool('circular saw', 5), Tool('drill', 4), Tool('sander', 4)]
+
+## Item 15: Be Cautious When Relying on `dict` Insertion Ordering
+Before Python 3.5 `key` orders `dict` are not in order they were inserted. From Python 3.6 `dict` items will be in order of insertion. 
+
+`OrderedDict` is `dict` like type with preserving order of items. But it has different performance characteristics. 
+
+* However, you should not rely on the fact that the are ordered in order of insertion, because it might cause unforeseen behavior:
+```python
+votes = {
+    "otter": 1281,
+    "polar bear": 587,
+    "fox": 863,
+}
+
+def populate_ranks(votes, ranks):
+    names = list(votes.keys())
+    names.sort(key=votes.get, reverse=True)
+        for i, name enumerate(names, 1):
+            ranks[name] = i
+
+
+def get_winner(ranks):
+    return next(iter(ranks))
+
+
+ranks = {}
+populate_ranks(votes, ranks)
+print(ranks)
+winner = get_winner(ranks)
+print(winner)
+```
+    >>>
+    {'otter': 1, 'bear': 2, 'fox': 3}
+    otter
+
+
+
+
+
+
+
+
+
+
+

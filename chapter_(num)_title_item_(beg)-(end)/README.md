@@ -37,6 +37,12 @@ print(names)
 
 ```
 
-> \>>>
-['arugula', 'bacon', 'carrots', 'pretzels']
-> \>>>
+    >>>
+    ['arugula', 'bacon', 'carrots', 'pretzels']
+
+
+
+
+
+
+* [Back to repo](https://github.com/almazkun/effective_python#effective_python)
