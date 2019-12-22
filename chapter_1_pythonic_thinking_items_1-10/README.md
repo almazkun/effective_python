@@ -504,5 +504,5 @@ except OutOfBananas:
             batch = make_juice(fruit, count)
             bottles.extend(batch)
 
-
+# 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)

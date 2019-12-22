@@ -340,7 +340,7 @@ print(winner)
     {'otter': 1, 'bear': 2, 'fox': 3}
     otter
 
-It is all good, ut if later the requirements have changes and now you need to show results in alphabetical order. To do so, you might use `collections.abc` built-in method:
+It is all good, but if later the requirements have changes and now you need to show results in alphabetical order. To do so, you might use `collections.abc` built-in method, to make your own `dict`-like class which will iterate its contents in alphabetical order:
 ```python
 from collections.abc import MutableMapping
 
@@ -368,10 +368,77 @@ class SortedDict(MutableMapping):
         return len(self.data)
 
 
+sorted_ranks = SortedDict()
+populate_ranks(votes, sorted_ranks)
+print(sorted_ranks.data)
+winner = get_winner(sorted_ranks)
+print(winner)
+```
+    >>>
+    {'otter': 1, 'bear': 2, 'fox': 3}
+    fox
+
+The problem here os that `get_winner()` assumes that `dict`s content sorted in insertion order. Whish is no longer try in custom `dict` class. To avoid this bug, you have 3 options:
+
+* To make `get_winner` check for the rank. This is most conservative and robust solution:
+```python
+def get_winner(ranks):
+    for name, rank in ranks.items():
+        if rank == 1:
+            return name
+
+winner = get_winner(sorted_ranks):
+print(winner)
+```
+    >>>
+    otter
+
+* Also, you can check if a correct type were supplied and raise exception if not. This solution most probably have better runtime performance:
+```python
+def get_winner(ranks):
+    if not ranks isinstance(ranks, dict):
+        raise TypeError("must provide a dict instance")
+    return next(iter(ranks))
+
+get_winner(sorted_ranks)
+```
+    >>>
+    Traceback ...
+    TypeError: must provide a dict instance
+
+* Third solution is to use type annotations to ensure that `dict` is passed:
+```python
+from typing import Dict, MutableMapping
 
 
+def populate_ranks(votes: Dict[str, int],
+                   ranks: Dict[str, int]) -> None
+    names = list(votes.keys())
+    names.sort(key=votes.get, reverse=True)
+    for i, name in enumerate(names, 1):
+        ranks[name] = i
 
 
+def get_winner(ranks: Dict[str, int]) -> None
+    return next(iter(ranks))
 
 
+class SortedDict(MutableMapping[str, int]):
+...
 
+sorted_ranks = SortedDict()
+populate_ranks(votes, sorted_ranks)
+print(sorted_ranks.data)
+winner = get_winner(sorted_ranks)
+print(winner)
+```
+    >>>
+    $ python3 -m mypy --strict example.py
+    .../example.py:48: error: Argument 2 to "populate_ranks" has
+    ➥incompatible type "SortedDict"; expected "Dict[str, int]"
+    .../example.py:50: error: Argument 1 to "get_winner" has
+    ➥incompatible type "SortedDict"; expected "Dict[str, int]"
+
+
+# 
+* [Back to repo](https://github.com/almazkun/effective_python#effective_python)
