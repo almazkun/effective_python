@@ -439,6 +439,111 @@ print(winner)
     .../example.py:50: error: Argument 1 to "get_winner" has
     ➥incompatible type "SortedDict"; expected "Dict[str, int]"
 
+## Item 16: Prefer `get` over `in` and `KeyError` to Handle Missing Dictionary Keys
+When working woth `dict` main operations are accessing, assigning and deleting. But it is very ofter that keys you want to access or delete are not there. 
+
+Lets implement a voting for best bread:
+```python
+counter = {
+    "pumpernickel": 2,
+    "sourdough": 1
+}
+```
+To record a new vote i need a function which will record a vote, insert a key with default value of `0` and add a vote if ey is missing. One way to do it with `if` and `in` operators:
+```python
+key = "wheat"
+
+if key in counter:
+    count = counters[key]
+else:
+    count = 0
+
+counters[key] = count + 1
+```
+Another way to accomplish it is:
+```python
+try:
+    count = counters[key]
+except:
+    count = 0
+
+counters[key] = counter + 1
+```
+This patter in so common that there is a `get` method to access a key or return default parameter if key is missing:
+```python
+count = counters.get(key, 0)
+counters[key] = count + 1
+```
+There are shorter ways to write it with `if` and `in`, but `get` method is shortest and clearest option. 
+    **Note:** If you need dictionaries of counters like this, you may want to use `Counter` class from `collections` built-in module, which will provide you with reach functionality.
+
+* What if you need to store more thant `int`, say, also people who voted:
+```python
+votes = {
+    "baguette": ["Bob", "Alice"],
+    "ciabatta": ["Coco", "Deb"],
+}  
+key = "brioche"
+who = "Elmer"
+
+if key in votes:
+    names = votes[key]
+else:
+    votes[key] = names = []
+
+names.append(who)
+print(votes)
+```
+    >>>
+    {'baguette': ['Bob', 'Alice'], 
+    'ciabatta': ['Coco', 'Deb'], 
+    'brioche': ['Elmer']}
+
+* it also can be accomplished with `KeyError` exception being raised:
+```python
+try:
+    name = votes[key]
+except:
+    votes[key] = names = []
+
+names.append(who)
+```
+
+* Similarly, with the `get` method:
+```python
+names = votes.get[key]
+if name in None:
+    votes[key] = names = []
+```
+
+* it can be made even shorter if new assignment operator is used:
+```pyhton
+if (names := votes.get(key)) in None:
+    votes[key] = names = []
+```
+
+* `dict` type also provides `setdefault` method, whish fetches the value of the key in the dictionary. If key isn't present `setdefault` assigns default value to the key and then returns this value:
+```python
+names = votes.setdefault(key, [])
+names = append(who)
+```
+* Important gotcha is here, `setdefault` method assigns default value directly into the dictionary, instead of being copied. This means that you need to assign new default for every key accessed with `setdefault`, which will have a significant performance overhead. 
+```python
+data = {}
+key = "foo"
+value =[]
+
+data.setdefault(key, value)
+print("Before:", data)
+value.append("hello")
+print("After:", data)
+```  
+    >>>
+    Before: {'foo': []}
+    After: {'foo': ['hello']}
+
+In conclusion: better to use `get` method, and safe `setdefault` method for very specific situations. 
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
