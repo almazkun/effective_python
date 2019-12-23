@@ -544,6 +544,19 @@ print("After:", data)
 
 In conclusion: better to use `get` method, and safe `setdefault` method for very specific situations. 
 
+## Item 17: Prefer `defaultdict` over `setdefault` to Handling Missing Items in Internal State
+When working with `dict`s you haven't create there are viriety of ways to handle missing keys. `get` or `setdefault` methods. Sometimes `setdefault` method is shortest one to use:
+```python
+visits = {'Mexico': {'Tulum', 'Puerto Vallarta'},'Japan': {'Hakone'},}
+
+visits.setdefault("France", set()).add("Arles") # Short
+
+if (japan := visits.get("Japan")) is None:      # Long
+    visits["Japan"] = japan = set()
+
+japan.add("Kyoto")
+```
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
