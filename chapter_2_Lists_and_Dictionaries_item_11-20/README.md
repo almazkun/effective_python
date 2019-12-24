@@ -378,7 +378,7 @@ print(winner)
     {'otter': 1, 'bear': 2, 'fox': 3}
     fox
 
-The problem here os that `get_winner()` assumes that `dict`s content sorted in insertion order. Whish is no longer try in custom `dict` class. To avoid this bug, you have 3 options:
+The problem here is that `get_winner()` assumes that `dict`s content sorted in insertion order. Whish is no longer try in custom `dict` class. To avoid this bug, you have 3 options:
 
 * To make `get_winner` check for the rank. This is most conservative and robust solution:
 ```python
@@ -440,7 +440,7 @@ print(winner)
     ➥incompatible type "SortedDict"; expected "Dict[str, int]"
 
 ## Item 16: Prefer `get` over `in` and `KeyError` to Handle Missing Dictionary Keys
-When working woth `dict` main operations are accessing, assigning and deleting. But it is very ofter that keys you want to access or delete are not there. 
+When working with `dict` main operations are accessing, assigning and deleting. But it is very ofter that keys you want to access or delete are not there. 
 
 Lets implement a voting for best bread:
 ```python
@@ -555,7 +555,54 @@ if (japan := visits.get("Japan")) is None:      # Long
     visits["Japan"] = japan = set()
 
 japan.add("Kyoto")
+
+print(visits)
 ```
+    >>>
+    {'Mexico': {'Tulum', 'Puerto Vallarta'},
+    'Japan': {'Kyoto', 'Hakone'},
+    'France': {'Arles'}}
+
+*In situations when you *do* control creation of the `dict`. For example, to store internal state of class. This class correctly uses `setdefault()` method. 
+```python
+class Visits:
+    def __init__(self):
+        self.data = {}
+
+    def add(self, country, city):
+        city_set = self.data.setdefault(country, set())
+        city_set.add(city)
+
+
+visits = Visits()
+visits.add('Russia', 'Yekaterinburg')
+visits.add('Tanzania', 'Zanzibar')
+print(visits.data)
+```
+    >>>
+    {'Russia': {'Yekaterinburg'}, 'Tanzania': {'Zanzibar'}}
+
+However, it is not very efficient, because need to instantiate new `set()` on every call. Luckily, the `defaultdict` class `collections` built-in is a better solution in this case:
+```python
+from collections import defaultdict
+
+
+class Visits:
+    def __init__(self):
+        self.date = defaultdict(set)
+
+    def add(self, country, city):
+        self.data[country].add(city)
+
+
+visits = Visits()
+visits.add('England', 'Bath')
+visits.add("England", "London)
+print(visits.data)
+```
+    >>>
+    defaultdict(<class 'set'>, {'England': {'London', 'Bath'}})
+
 
 
 # 
