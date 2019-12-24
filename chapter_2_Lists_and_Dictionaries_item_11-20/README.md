@@ -603,7 +603,51 @@ print(visits.data)
     >>>
     defaultdict(<class 'set'>, {'England': {'London', 'Bath'}})
 
+## Item 18: Know How to Construct Key-Dependant Default Values with `__missing__`
 
+There are times when `setdefault` and `collections.defaultdict` are not the right choice to handle missing keys. 
+
+* Let's assume your are writing a program to manage Profile pictures on a filesystem. Where is how it could be done with `get` and `dict`:
+```python
+pictures = {}
+path = "profile_1234.png"
+
+if (handle := pictures.get(path)) is None:
+    try:
+        handle = open(path, "a+b")
+    except OSError:
+        print(f"Failed to open path {path}")
+        raise
+    else:
+        pictures[path] = handle
+    
+handle.seek(0)
+image_data = handle.read()
+```
+
+* This can also be implemented with `setdefault` and `defaultdict`, but both of those choices have problems and not optimal. To handle it better `__missing__` method can be added to subclass `dict`:
+```python
+def open_picture(profile_path):
+    try: 
+        return open(profile_path, "a+b")
+    except OSError:
+        print(f"Failed to open path {profile_path}")
+        raise
+
+
+class Pictures(dict):
+    def __missing__(self, key):
+        value = open_picture(key)
+        self[key] = value
+        return value
+
+
+pictures = Pictures()
+handle = pictures[path]
+handel.seek(0)
+image_date = handle.read()
+```
+Much better now. 
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
