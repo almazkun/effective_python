@@ -2,7 +2,7 @@
 
 ## Item 19: Never Unpack More Than Three Variables When Function Return Multiple Values
 
-* Unpacking allow seemingly return more than one value:
+* Unpacking allows seemingly return more than one value:
 ```python
 def get_stats(numbers):
     minimum = min(numbers)
@@ -35,7 +35,7 @@ print(f"Shortest: {shortest:>4.0%}")
     Longest: 108%
     Shortest: 89%
 
-* Now, imagine you have to need to show also min, max, avg, median and total population. It can be dome by extending our previous function:
+* Now, imagine you need to show also min, max, avg, median and total population. It can be dome by extending our previous function:
 ```python
 def get_stats(numbers):
     maximum = max(numbers)
@@ -62,9 +62,9 @@ print(f"Average: {average}, Median: {median}, Count {count}")
     Min: 60, Max: 73
     Average: 67.5, Median: 70, Count 10
 
-But, this approach has two main problems. First, all the return values are numeric and it is easy to reorder them accidentals and not to notice that. Which, will lead to the hard-to-find bugs in the future. Second, is that line of unpacking of the values is to long and, according to the PEP 8, it should be divided into more lines. Which will hurt readability. 
+But, this approach has two main problems. First, all the return values are numeric and it is easy to reorder them accidentally and not to notice that. Which, will lead to the hard-to-find bugs in the future. Second, is that line of unpacking of the values is to long and, according to the PEP 8, it should be divided into more lines. Which will hurt readability. 
 
-To avoid this problem you should never use more than tree(3) variables when unpacking multiple return values from a function. Instead, maybe used small class or `namedtuple`.
+To avoid these problems you should never use more than tree(3) variables when unpacking multiple return values from a function. Instead, small class or `namedtuple` maybe used.
 
 ## Item 20: Prefer Raising Error to Returning `None`
 Sometimes returning `None` in helper function seems natural. Like in case of division function:
@@ -129,7 +129,7 @@ else:
     print(f"Result is {result:>.1}")
 ```
 
-* This approach can be extended using `type annotation` and `docstring`:
+* This approach can be extended by using `type annotation` and `docstring`:
 ```python 
 def careful_division(a: float, b:float) -> float:
     """Divides a by b.
@@ -141,6 +141,81 @@ def careful_division(a: float, b:float) -> float:
         return a / b
     except ZeroDivisionError as e:
         raise ValueError("Invalid inputs")
+```
+
+## Item 21: Know How Closures Interact with Variable Scope
+Let's imagine that you want to sort `list` of numbers, but prioritize one group of number to come first. You can do it by passing a helper function as a `key` argument to the `sort()` method.  
+```python
+def sort_priority(values, group):
+    def helper(x):
+        if x in group:
+            return (0, x)
+        return (1, x)
+    values.sort(key=helper)
+```
+This function works for simple inputs:
+```python
+numbers = [8, 3, 1, 2, 5, 4, 7, 6]
+group = {2, 3, 5, 7}
+sort_priority(numbers, group)
+print(numbers)
+```
+    >>>
+    [2, 3, 5, 7, 1, 4, 6, 8]
+
+There are 3 reasons why this is working:
+1. Python supports *Closures* - that is, functions that refer to the variable from scope in which they were defined. That is why `helper` function can access `group` argument from `sort_priority`.
+2. Functions are *first-class* objects in Python. They you can refer them directly, assign the to the variables, pass them as a arguments to other functions, compare them in expressions and if statements, and so on. This is why `sort()` method can accept closure `helper` function as a `key` argument. 
+3. Python has specific rules for comparing elements. Fist, it compares element with index `0`, then, if they are equal, compare elements and index `1` and so on. That is why the return values from the `helper` closure causes the sort order to have two distinct groups. 
+
+
+It'd be nice if this function also return a flag if the numbers from group is present. Adding this seems like not a hard problem:
+```python
+def sort_priority2(values, group):
+    found = False
+    def helper(x):
+        if x in group:
+            found = True
+            return (0, x)
+        return (1, x)
+    values.sort(key=helper)
+    return found
+
+found = sort_priority2(numbers, group)
+print('Found:', found)
+print(numbers)
+```
+    >>>
+    Found: False
+    [2, 3, 5, 7, 1, 4, 6, 8]
+
+Function is not working. This happens because variable assignment does not go outside of the helper's scope. 
+
+    Python scans for references in following order"
+
+    1. The current function's scope.
+    2. Any enclosing scopes (such as other containing functions).
+    3. The scope of the module that contains the code (aka *Global scope*).
+    4. The built-in scope (that contains functions line `len()` and `str()`).
+
+    If it cant find it in this places, `NameError` exception will be raised.
+
+* To get date out of a closure, `nonlocal` syntax can be used:
+```python
+def sort_priority2(values, group):
+    found = False
+    def helper(X):
+        nonlocal found
+        if x in group:
+            found = True
+            return (0, x)
+        return (1, x)
+    values.sort(key=helper)
+    return found
+
+found = sort_priority2(numbers, group)
+print('Found:', found)
+print(numbers)
 ```
 
 
