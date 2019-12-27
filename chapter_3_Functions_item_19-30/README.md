@@ -18,6 +18,57 @@ print(f"Min: {minimum}, Max: {maximum}")
     >>>
     Min: 60, Max: 73
 
+* Multiple values also can be packed using `*stared_expressions`:
+```python
+def get_avg_ratio(numbers):
+    average = sum(numbers) / len(numbers)
+    scaled = [x / average for x in numbers]
+    scaled.sort(reverse=True)
+    return scaled
+
+longest, *middle, shortest = get_avg_ratio(lengths)
+
+print(f"Longest: {longest:>4.0%}")
+print(f"Shortest: {shortest:>4.0%}")
+```
+    >>>
+    Longest: 108%
+    Shortest: 89%
+
+* Now, imagine you have to need to show also min, max, avg, median and total population. It can be dome by extending our previous function:
+```python
+def get_stats(numbers):
+    maximum = max(numbers)
+    minimum = min(numbers)
+    count = len(numbers)
+    average = sum(numbers) / count
+
+    sorted_numbers = sorted(numbers)
+    middle = count // 2
+    if middle % 2 == 0:
+        lower = sorted_numbers[middle - 1]
+        upper = sorted_numbers[middle]
+        median = (lower + upper) / 2
+    else:
+        median = sorted_numbers[middle]
+    return minimum, maximum, average, median, count
+
+minimum, maximum, average, median, count = get_stat(numbers)
+
+print(f"Min: {minimum}, Max: {maximum}")
+print(f"Average: {average}, Median: {median}, Count {count}")
+```
+    >>>
+    Min: 60, Max: 73
+    Average: 67.5, Median: 70, Count 10
+
+But, this approach has two main problems. First, all the return values are numeric and it is easy to reorder them accidentals and not to notice that. Which, will lead to the hard-to-find bugs in the future. Second, is that line of unpacking of the values is to long and, according to the PEP 8, it should be divided into more lines. Which will hurt readability. 
+
+To avoid this problem you should never use more thatn tree(3) variables when unpacking multiple return values from a function. Instead, maybe used small class or `namedtuple`.
+
+## Item 20: Prefer Raising Error to Returning `None`
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
