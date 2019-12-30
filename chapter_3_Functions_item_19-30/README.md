@@ -240,5 +240,82 @@ sorter = Sorter(group)
 numbers.sort(key=sorter)
 assert sorter.found is True
 ```
+## Item 22: Reduce Visual Noise with Variable Positional Argument
+Positional arguments in functions may reduce visual noise and increase readability. Positional arguments are often called `varargs` or `star args` (because of the way they are declared `*args`).
+
+* With fixed number of parameters you can have a function like this:
+```python
+def log(message, values):
+    if not values:
+        print(message)
+    else:
+        values_str = ", ".join(str(x) for x in values)
+        print(f"{message}: {values_str}")
+
+log("My numbers are", [1, 2])
+log("Hi there", [])
+```
+    >>>
+    My numbers are: 1, 2
+    Hi there
+
+As you can see, call with empty list does not look great. You can avoid it with prefixing optional arguments with `*`:
+```python
+def log(message, *values): # The only change
+    if not values:
+        print(message)
+    else:
+        values_str = ", ".join(str(x) for x in values)
+        print(f"{message}: {values_str}") 
+
+log("My numbers are", [1, 2])
+log("Hi there") # And a function call is changed.
+```
+    >>>
+    My numbers are: 1, 2
+    Hi there
+
+* A sequence can be passed to the function call using `*` operator:
+```python
+favorites = [7, 33, 99]
+log('Favorite colors', *favorites)
+```
+    >>>
+    Favorite colors: 7, 33, 99
+
+* There are two problems with accepting variable number of positional arguments. 
+1. Optional positional arguments are always turned into `tuple`. This mean if a generator function is called with `*` argument it will be iterated until its over, which can eat a lot of memory and result in crush:
+```python
+def my_generator():
+    for i in range(10**100):
+        yield i
+
+def my_func(*args):
+    print(args)
+
+it = my_generator()
+my_func(*it)
+```
+`*args` parameters are good in situation when you now the number of arguments and it is a relatively small number. 
+
+2. Second problem is: you cannot add new positional arguments in the future without breaking old calls (backward incompatible):
+```python
+def log(sequence, message, *values):
+    if not values:
+        print(f"{sequence} - {message}")
+    else:
+        values_str = ", ".join(str(x) for x in values)
+        print(f"{sequence} - {message}: {values_str}")
+
+log(1, 'Favorites', 7, 33)          # RIGHT New call
+log(1, 'Hi there')                  # RIGHT New call
+log('Favorite numbers', 7, 33)      # WRONG Old usage breaks
+```
+    >>>
+    1 - Favorites: 7, 33
+    1 - Hi there
+    Favorite numbers - 7: 33
+
+This kind of bugs are hurd to track down because function runs without exception. To avoide this, you can add new functionality by using keyword-only arguments or, even more robust, use type annotation. 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
