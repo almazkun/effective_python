@@ -317,5 +317,45 @@ log('Favorite numbers', 7, 33)      # WRONG Old usage breaks
     Favorite numbers - 7: 33
 
 This kind of bugs are hurd to track down because function runs without exception. To avoide this, you can add new functionality by using keyword-only arguments or, even more robust, use type annotation. 
+
+## item 23: Provide Optional Behavior with Keyword Arguments
+In Python argument to a function call maybe positional or keyword. You may use keyword-only arguments in any order in the call:
+```python
+def remainder(number, divisor):
+    return number % divisor
+
+remainder(20, 7)
+remainder(20, divisor=7)
+remainder(number=20, divisor=7)
+remainder(divisor=7, number=20)
+```
+
+Positional arguments should be passed before keyword arguments:
+```python
+remainder(number=20, 7)
+```
+    >>>
+    Traceback ...
+    SyntaxError: positional argument follows keyword argument
+
+And, each argument can be specified only once:
+```python
+remainder(20, number=7)
+```
+    >>>
+    Traceback ...
+    TypeError: remainder() got multiple values for argument 'number'
+
+If you have a `dict` and want to have it content to pass as function call - you can use `**` and keys of the `dict` will be used as the keyword argument names and values as a arguments:
+```python
+my_kwargs = {
+    'number': 20,
+    'divisor': 7,
+}
+remainder(**my_kwargs)
+```
+    >>>
+    6
+    
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
