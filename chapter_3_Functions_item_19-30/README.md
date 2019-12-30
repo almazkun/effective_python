@@ -202,9 +202,9 @@ Function is not working. This happens because variable assignment does not go ou
 
 * To get date out of a closure, `nonlocal` syntax can be used:
 ```python
-def sort_priority2(values, group):
+def sort_priority3(values, group):
     found = False
-    def helper(X):
+    def helper(x):
         nonlocal found
         if x in group:
             found = True
@@ -213,11 +213,32 @@ def sort_priority2(values, group):
     values.sort(key=helper)
     return found
 
-found = sort_priority2(numbers, group)
+
+found = sort_priority3(numbers, group)
 print('Found:', found)
 print(numbers)
 ```
+    >>>
+    True
+    [2, 3, 5, 7, 1, 4, 6, 8]
 
+However, you should be careful with `global` and `nonlocal` statements and use them in relatively small functions only. 
 
+If it is getting complicated, better to use wrapper class:
+```python
+class Sorter:
+    def __init__(self, group):
+        self.group = group
+        self.found = False
+    def __call__(self, x):
+        if x in self.group:
+            self.found = True
+            return (0, x)
+        return (1, x)
+
+sorter = Sorter(group)
+numbers.sort(key=sorter)
+assert sorter.found is True
+```
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
