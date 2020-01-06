@@ -434,5 +434,120 @@ The only problem with this approach is that keyword argument can also be called 
 pounds_per_hour = flow_rate(weight_diff, time_diff, 3600, 2.2)
 ```
 
+
+## Item 24: Use `None` and Docstrings to Specify Dynamic Default Argument
+Sometimes you need to make a non-static type the default value. For instance, like in logger function, you want to print time of event occurrenc:
+```python
+from time import sleep
+from datetime import datetime
+
+
+def log(message, when=datetime.now()):
+    print(f"{when}: {message}")
+
+log("Hi there!")
+sleep(0.1)
+log("Hello again!")
+sleep(0.1)
+log("Last time")
+```
+    >>>
+    2020-01-06 08:44:39.286206: Hi there!
+    2020-01-06 08:44:39.286206: Hello again!
+
+This does not work. Because `now()` show the time when function is defined(which is, usually, when module is loaded).
+
+* Common way to achieve this is to use `None` default value and explain the behavior docstring:
+```python:
+def log(message, when=None):
+    """Log a message with a timestamp.
+    
+    Args:
+        message: Message to print.
+        when: datetime of when the message occurred.
+            Defaults to the present time.
+
+    """
+    if when is None:
+        when = datetime.now()
+    print(f"{when}: {message}")
+```
+    >>>
+    2020-01-06 09:00:14.731529: Hi there!
+    2020-01-06 09:00:14.832437: Hello again!
+
+* It is especially important when the arguments are mutable. Let's say we want to load a value in JSON format and if the decoding fails, tp return an empty `dict`:
+```python
+import json
+
+
+def decode(data, default={}):
+    try:
+        return json.loads(data)
+    except ValueError:
+        return default
+```
+The problem is that deafult `dict` will be shared with all the call of the function. Because it will be defined only once at module loading. Which will have a surprising behavior:
+```python
+foo = decode("bad date")
+foo["stuff"] = 5
+bar = decode("also bad")
+bar["meep"] = 1
+
+print("Foo:", foo)
+print("Bar:", bar)
+```
+We were expecting two different dictionaries but change in first is affecting the other. It is because this is one `dict` the `default` one:
+```python
+assert foo is bar
+```
+Not to have this problem we shpuld default to `None` and explain behaviour in docstring:
+```python 
+def decode(data, default=None):
+    """Load JSON data from a string.
+    Args:
+        data: JSON data to decode.
+        default: Value to return if decoding fails.
+            Defaults to an empty dictionary.
+    """
+    try:
+        return json.loads(data)
+    except ValueError:
+        if default is None:
+            default = {}
+    return default
+
+
+foo = decode("bad date")
+foo["stuff"] = 5
+bar = decode("also bad")
+bar["meep"] = 1
+
+print("Foo:", foo)
+print("Bar:", bar)
+
+```
+    >>>
+    Foo: {'stuff': 5}
+    Bar: {'meep': 1}
+
+
+This approach works well with type annotations:
+```python
+from typing import Optional
+
+
+def log_typed(message: str, 
+            when: Optional[datetime]=None) -> None:
+    """Log a message with a timestamp.
+    Args:
+        message: Message to print.
+        when: datetime of when the message occurred.
+            Defaults to the present time.
+    """
+    if when is None:
+        when = datetime.now()
+    print(f'{when}: {message}')
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
