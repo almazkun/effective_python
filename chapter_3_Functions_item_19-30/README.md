@@ -330,7 +330,7 @@ remainder(number=20, divisor=7)
 remainder(divisor=7, number=20)
 ```
 
-Positional arguments should be passed before keyword arguments:
+* Positional arguments should be passed before keyword arguments:
 ```python
 remainder(number=20, 7)
 ```
@@ -338,7 +338,7 @@ remainder(number=20, 7)
     Traceback ...
     SyntaxError: positional argument follows keyword argument
 
-And, each argument can be specified only once:
+* And, each argument can be specified only once:
 ```python
 remainder(20, number=7)
 ```
@@ -346,7 +346,7 @@ remainder(20, number=7)
     Traceback ...
     TypeError: remainder() got multiple values for argument 'number'
 
-If you have a `dict` and want to have it content to pass as function call - you can use `**` and keys of the `dict` will be used as the keyword argument names and values as a arguments:
+* If you have a `dict` and want to have it content to pass as function call - you can use `**` and keys of the `dict` will be used as the keyword argument names and values as a arguments:
 ```python
 my_kwargs = {
     'number': 20,
@@ -356,6 +356,83 @@ remainder(**my_kwargs)
 ```
     >>>
     6
-    
+* This cool feature can be used with two(2) dictionaries if they don't have same keys:
+```python
+my_kwargs = {
+    "number": 20,
+}
+other_kwargs = {
+    "divisor": 7,
+}
+reminder(**my_kwargs, ^^other_kwargs)
+```
+    >>>
+    6
+
+* If you want function to catch all the named arguments, you can use `**kwargs` as well:
+```python
+def print_parameters(**kwargs):
+    for key, value in kwargs.items():
+        print(f"{key} = {value}")
+
+print_parameters(alpha=1.5, beta=9, gamma=4)
+```
+    >>>
+    alpha = 1.5
+    beta = 9
+    gamma = 4
+
+Keyword arguments provides three significant benefits:
+1. First benefit is that it is always clearer to the new caller of the function which argument is which, without locking in to the implementation.
+2. Second is that you can assign default values to the argument, thus provide additional functionality. 
+    For instance, let's look at the function computing the rate of the fluid going into the vat:
+
+```python
+def flow_rate(weight_diff, time_diff):
+    return weight_diff / time_diff
+
+weight_diff = 0.5
+time_diff = 3
+
+flow = flow_rate(weight_diff, time_diff)
+print(f"{flow:.3}, kg per second")
+``` 
+    >>>
+    0.167 kg per second
+
+Now, let's say you need to add a functionality to change a period from second to hours or more. We can do it by adding new `period` argument. But we dint want to specified it each call. We want the function to compute rate at per second by default and only, if needed, change the period. We can achieve this by using `default` value for the `argument`:
+```python
+def flow_rate(weight_diff, time_diff, period=1):
+    return (weight_diff / time_diff) * period
+
+
+flow_per_second = flow_rate(weight_diff, time_diff)
+flow_per_hour = flow_rate(weight_diff, time_diff, period=3600)
+
+print(f"{flow_per_second:.3} kg per second")
+print(f"{flow_per_hour} kg per hour")
+```
+    >>>
+    0.167 kg per second
+    600.0 kg per hour
+
+3. Third reason is that keyword arguments provide you with the way to add functionality without breaking backward compatibility. This mean you can add functionality without big changes in existing code base. 
+
+Here, we will add new functionality `units_per_kg` to the function:
+```python
+def flow_rate(weight_diff, time_diff, period=1, units_per_kg=1):
+    return ((weight_diff * units_per_kg)/ time_diff) * period
+
+pounds_per_hour = flow_rate(weight_diff, time_diff, period=3600, units_per_kg=2.2)
+print(f"{pounds_per_hour} pounds per hour")
+```
+    >>>
+    1320.0 pounds per hour
+
+The only problem with this approach is that keyword argument can also be called using its position. Following call will work:
+```python
+pounds_per_hour = flow_rate(weight_diff, time_diff, 3600, 2.2)
+```
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
