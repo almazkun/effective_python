@@ -548,6 +548,78 @@ def log_typed(message: str,
     if when is None:
         when = datetime.now()
     print(f'{when}: {message}')
+```
 
+## Item 25: Enforce Clarity with Keyword-Only and Positional-Only Arguments 
+Following modification of the division function now can ignore division by zero and return infinity and will return `0` for overflow. 
+```python
+def safe_division(number, divisor, ignore_overflow, ignore_zero_division):
+    try:
+        return number / divisor
+    except OverflowError:
+        if ignore_overflow:
+            return 0
+        else:
+            raise
+    except ZeroDivisionError:
+        if ignore_zero_division:
+            return float("inf")
+        else:
+            raise
+
+result = safe_division(1.0, 10**500, True, False)
+print(result)
+
+result = safe_division(1.0, 0, False, True)
+print(result)
+```
+    >>>
+    0
+    inf
+
+It is very easy to confuse the positions of two last booleans. One way to make the function call less error prone is add default values to the Boolean arguments:
+```python
+def safe_division_b(number, divisor, ignore_overflow=False, ignore_zero_division=False)
+    ...
+```
+Now, specific behavior can be called by overriding default values:
+```python
+result = safe_division_b(1.0, 10**500, ignore_overflow=True)
+print(result)
+result = safe_division_b(1.0, 0, ignore_zero_division=True)
+print(result)
+```
+    >>>
+    0
+    inf
+
+However, this boolean arguments still can be called using their position:
+```python
+assert safe_division_b(1.0, 10**500, True, False) == 0
+```
+
+For complex functions it is recommended to use keyword-only arguments. It is achieved by separating arguments with `*`:
+```python
+def safe_division_c(number, divisor, *, ignore_overflow=False, ignore_zero_division=False)
+    ...
+```
+
+Now, this won't work:
+```python
+safe_division(1.0, 10**500, True, False)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>   
+    TypeError: safe_division() takes 2 positional arguments but 4 were given    
+
+However, the problem with first two arguments, when you can mix position and keywords:
+```python
+assert safe_division_c(number=2, divisor=5) == 0.4
+assert safe_division_c(divisor=5, number=2) == 0.4
+assert safe_division_c(2, divisor=5) == 0.4
+```
+
+Let's say, that decided to cange the na
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
