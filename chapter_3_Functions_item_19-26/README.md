@@ -551,7 +551,7 @@ def log_typed(message: str,
 ```
 
 ## Item 25: Enforce Clarity with Keyword-Only and Positional-Only Arguments 
-Following modification of the division function now can ignore division by zero and return infinity and will return `0` for overflow. 
+Following modification of the division function now can ignore division by zero error by returning infinity and will return `0` for overflow. 
 ```python
 def safe_division(number, divisor, ignore_overflow, ignore_zero_division):
     try:
@@ -577,12 +577,12 @@ print(result)
     0
     inf
 
-It is very easy to confuse the positions of two last booleans. One way to make the function call less error prone is add default values to the Boolean arguments:
+* It is very easy to confuse the positions of two last booleans. One way to make the function call less error prone is add default values to the Boolean arguments:
 ```python
 def safe_division_b(number, divisor, ignore_overflow=False, ignore_zero_division=False)
     ...
 ```
-Now, specific behavior can be called by overriding default values:
+* Now, specific behavior can be called by overriding default values:
 ```python
 result = safe_division_b(1.0, 10**500, ignore_overflow=True)
 print(result)
@@ -593,7 +593,7 @@ print(result)
     0
     inf
 
-However, this boolean arguments still can be called using their position:
+* However, this boolean arguments still can be called using their position:
 ```python
 assert safe_division_b(1.0, 10**500, True, False) == 0
 ```
@@ -604,7 +604,7 @@ def safe_division_c(number, divisor, *, ignore_overflow=False, ignore_zero_divis
     ...
 ```
 
-Now, following function call won't work:
+* Now, following function call won't work:
 ```python
 safe_division(1.0, 10**500, True, False)
 ```
@@ -613,13 +613,100 @@ safe_division(1.0, 10**500, True, False)
       File "<stdin>", line 1, in <module>   
     TypeError: safe_division() takes 2 positional arguments but 4 were given    
 
-However, the problem with first two arguments still exist, when you can mix position with keyword:
+* However, the problem with first two arguments still exist, when you can mix position with keyword:
 ```python
 assert safe_division_c(number=2, divisor=5) == 0.4
 assert safe_division_c(divisor=5, number=2) == 0.4
 assert safe_division_c(2, divisor=5) == 0.4
 ```
 
-Let's say, that decided to cange the na
+* Let's say, that later we have decided to change the names because some reason. Now previous calls to the function will break: 
+```python
+def safe_division_c(numerator, denominator, *, # Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    ...
+
+safe_division_c(number=2, divisor=5)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: safe_division_c() got an unexpected keyword argument 'number'
+
+This is especially problematic because the name of the arguments never been intended to be the part of the interface. They are just convenient variable names.
+
+* Luckily in Python 3.8 there is a way to specifically make *positional-only arguments*:
+```python
+def safe_division_d(numerator, denominator, /, *, # Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+
+    ...
+print(safe_division_d(2, 5))
+print(safe_division_d(numerator=2, denominator=5))
+```
+    >>>
+    0.4
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: safe_division_d() got some positional-only arguments passed as keyword arguments: 'numerator, denominator'
+
+* Notable consequence of this new features is: any parameter placed between `/` and `*` can be called either by position or keyword (which is default for python functions):
+```python
+def safe_division_e(numerator, denominator, /, 
+                    ndigits=10, *, # Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    try:
+        fraction = numerator / denominator
+        return round(fraction, ndigits)
+    except OverflowError:
+        if ignore_overflow:
+            return 0
+        else:
+            raise
+    except ZeroDivisionError:
+        if ignore_zero_division:
+            return float("int")
+        else:
+            raise
+
+
+result = safe_division_e(22, 7)
+print(result)
+
+result = safe_division_e(22, 7, 5)
+print(result)
+
+result = safe_division_e(22, 7, ndigits=2)
+print(result)
+```
+    >>>
+    3.1428571429
+    3.14286
+    3.14
+
+
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
+
+
+def safe_division_d(numerator, denominator, /, *, # Changed
+                    ignore_overflow=False,
+                    ignore_zero_division=False):
+    try:
+        return numerator / denominator
+    except OverflowError:
+        if ignore_overflow:
+            return 0
+        else:
+            raise
+    except ZeroDivisionError:
+        if ignore_zero_division:
+            return float("inf")
+        else:
+            raise
