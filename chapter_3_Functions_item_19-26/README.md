@@ -620,7 +620,7 @@ assert safe_division_c(divisor=5, number=2) == 0.4
 assert safe_division_c(2, divisor=5) == 0.4
 ```
 
-* Let's say, that later we have decided to change the names because some reason. Now previous calls to the function will break: 
+* Let's say, that later we have decided to change the names for some random reason. Now previous calls to the function will break: 
 ```python
 def safe_division_c(numerator, denominator, *, # Changed
                     ignore_overflow=False,
@@ -687,26 +687,29 @@ print(result)
     3.14286
     3.14
 
+## Item 26: Define Function Decorators with `functools.wraps`
+Python has spesific `Decorators` that can be applied to the functions. This decorators can interact with a function before and after of each function call. Therefor, `decorators` can manipulate with values passed to the function arguments and return values of the functions. These decorators are used for wide variate of cases. This functionality can be used in debugging, enforcing semantics, registering functions. 
 
+For exsample, we want to have a log function, which will print arguments and corresponding return values. This can be helpful in debugging nested function calls. Let's define our decorator function using `*args` and `**kwargs`:
+```python
+def trace(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        print(f"{func.__name__}({args!r}, {kwargs!r}) "
+                f"-> {result!r}")
+        return result
+    return wrapper
+```
+Decorators can be applied to the function using `@` symbol:
+```python
+@trace
+def fibonacci(n):
+    """Returns n-th Fibonacci number"""
+    if n in (0, 1):
+        return n
+    return (fibonacci(n - 2) + fibonacci(n - 1))
+```
+This is eauvalent to the 
 
-
-
-# 
+#
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
-
-
-def safe_division_d(numerator, denominator, /, *, # Changed
-                    ignore_overflow=False,
-                    ignore_zero_division=False):
-    try:
-        return numerator / denominator
-    except OverflowError:
-        if ignore_overflow:
-            return 0
-        else:
-            raise
-    except ZeroDivisionError:
-        if ignore_zero_division:
-            return float("inf")
-        else:
-            raise
