@@ -1,8 +1,7 @@
 # Chapter 2. Lists and Dictionaries
 
 ## Item 11: Know How to Slice Sequences
-
-You can slice `list`, `str` and `bytes`. 
+* You can slice `list`, `str` and `bytes`. 
 Slicing syntax:
 ```python
 somelist[start:end]
@@ -21,7 +20,7 @@ a[2:-1]  #           ['c', 'd', 'e', 'f', 'g']
 a[-3:-1] #                          ['f', 'g']
 ```
 
-Slicing do not depend on the actual length of the `list`, it can silently omit missing items. Use this behavior to establish max length:
+* Slicing do not depend on the actual length of the `list`, it can silently omit missing items. Use this behavior to establish max length:
 ```python
 first_twenty_items = a[:20]
 last_twenty_items = a[-20:]
@@ -29,7 +28,7 @@ last_twenty_items = a[-20:]
 
 **Note:** be careful with negative indexes, it might have surprising results: `somelist[-0:]` is equal to `somelist[:]`.
 
-The result of slicing is a new `list`. Original `list` is unchanged:
+* The result of slicing is a new `list`. Original `list` is unchanged:
 ```python
 b = a[3:]
 print("Before:  ", b)
@@ -42,9 +41,8 @@ print("No change:", a)
     After:     ['d', 99, 'f', 'g', 'h']
     No change: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
-However, when in assignments, slice replaces the specific range in original `list`.
+* However, when in assignments, slice replaces the specific range in original `list`.
 Also, the length dose not matter, it will shrink or got longer:
-
 ```python
 print("Before:", a)
 a[2:7] = [99, 00, 888]
@@ -54,12 +52,11 @@ print("After:", a)
     Before: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     After: ['a', 'b', 99, 0, 888, 'h']
 
-To copy the `list` you can use:
+* To copy the `list` you can use:
 ```python
 b = a[:]
 ```
-
-You can replace entire list using this assignment:
+* You can replace entire list using this assignment:
 ```python
 b = a
 print("Before a: ", a)
@@ -75,8 +72,7 @@ print("After b:", b)
     After b: [101, 102, 103]
 
 ## Item 12: Avoid Striding and Slicing in a Single Expression 
-
-You can stride sequence using following logic: 
+* You can stride sequence using following logic: 
 ```python
 somelist = [start:end:stride]
 ```
@@ -93,7 +89,6 @@ print(evens)
     >>>
     ['red', 'yellow', 'blue']
     ['orange', 'green', 'purple']
-
 
 * To reverse byte string you can use:
 ```python
@@ -113,7 +108,6 @@ print(y)
     >>>
     司寿
     
-
 **Note** It won't work with unicode byte string. 
 
 * Other examples:
@@ -169,7 +163,7 @@ print(others)
 ```
     >>>
     File "<stdin>", line 1
-SyntaxError: starred assignment target must be in a list or tuple
+    SyntaxError: starred assignment target must be in a list or tuple
 
 * You cant use 2 stared expressions:
 ```python
@@ -177,7 +171,7 @@ first, *middle, *second_middle, last = [1, 2, 3, 4]
 ```
     >>>
     File "<stdin>", line 1
-SyntaxError: two starred expressions in assignment
+    SyntaxError: two starred expressions in assignment
 
 * Multiple catch-all unpacking can be used in multilevel structure, but better not be. 
 ```python
@@ -222,7 +216,6 @@ print("Row count:", len(rows))
 
 **Note** Be careful to use stared expressions on long iterations, because it might eat all your memory. 
 
-
 ## Item 14: Sort by Complex Criteria Using `key` Parameter
 
 * Use `sort()` method to sort built-in types which has a natural ordering to them:
@@ -256,7 +249,6 @@ print("Unsorted:", repr(tools))
 tools.sort(key=lambda x: x.name)
 print("\nSorted:", tools)
 ```
-
     >>>
     Unsorted: [Tool('level', 3.5), Tool('hammer', 1.25), Tool('screwdriver', 0.5), Tool('chisel', 0.25)]
     
@@ -442,7 +434,7 @@ print(winner)
 ## Item 16: Prefer `get` over `in` and `KeyError` to Handle Missing Dictionary Keys
 When working with `dict` main operations are accessing, assigning and deleting. But it is very ofter that keys you want to access or delete are not there. 
 
-Lets implement a voting for best bread:
+Lets implement a voting for the best bread:
 ```python
 counter = {
     "pumpernickel": 2,
@@ -469,7 +461,8 @@ except:
 
 counters[key] = counter + 1
 ```
-This patter in so common that there is a `get` method to access a key or return default parameter if key is missing:
+
+* This pattern in so common that there is a `get` method to access a key or return default parameter if a key is missing:
 ```python
 count = counters.get(key, 0)
 counters[key] = count + 1
@@ -563,7 +556,7 @@ print(visits)
     'Japan': {'Kyoto', 'Hakone'},
     'France': {'Arles'}}
 
-*In situations when you *do* control creation of the `dict`. For example, to store internal state of class. This class correctly uses `setdefault()` method. 
+* In situations when you *do* control creation of the `dict`. For example, to store internal state of class. This class correctly uses `setdefault()` method. 
 ```python
 class Visits:
     def __init__(self):
@@ -582,7 +575,7 @@ print(visits.data)
     >>>
     {'Russia': {'Yekaterinburg'}, 'Tanzania': {'Zanzibar'}}
 
-However, it is not very efficient, because need to instantiate new `set()` on every call. Luckily, the `defaultdict` class `collections` built-in is a better solution in this case:
+* However, it is not very efficient, because need to instantiate new `set()` on every call. Luckily, the `defaultdict` class `collections` built-in is a better solution in this case:
 ```python
 from collections import defaultdict
 
@@ -604,7 +597,6 @@ print(visits.data)
     defaultdict(<class 'set'>, {'England': {'London', 'Bath'}})
 
 ## Item 18: Know How to Construct Key-Dependant Default Values with `__missing__`
-
 There are times when `setdefault` and `collections.defaultdict` are not the right choice to handle missing keys. 
 
 * Let's assume your are writing a program to manage Profile pictures on a filesystem. Where is how it could be done with `get` and `dict`:

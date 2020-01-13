@@ -604,7 +604,7 @@ def safe_division_c(number, divisor, *, ignore_overflow=False, ignore_zero_divis
     ...
 ```
 
-Now, this won't work:
+Now, following function call won't work:
 ```python
 safe_division(1.0, 10**500, True, False)
 ```
@@ -613,7 +613,7 @@ safe_division(1.0, 10**500, True, False)
       File "<stdin>", line 1, in <module>   
     TypeError: safe_division() takes 2 positional arguments but 4 were given    
 
-However, the problem with first two arguments, when you can mix position and keywords:
+However, the problem with first two arguments still exist, when you can mix position with keyword:
 ```python
 assert safe_division_c(number=2, divisor=5) == 0.4
 assert safe_division_c(divisor=5, number=2) == 0.4
