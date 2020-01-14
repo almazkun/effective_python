@@ -688,9 +688,9 @@ print(result)
     3.14
 
 ## Item 26: Define Function Decorators with `functools.wraps`
-Python has spesific `Decorators` that can be applied to the functions. This decorators can interact with a function before and after of each function call. Therefor, `decorators` can manipulate with values passed to the function arguments and return values of the functions. These decorators are used for wide variate of cases. This functionality can be used in debugging, enforcing semantics, registering functions. 
+Python has specific `Decorators` that can be applied to the functions. This decorators can interact with a function before and after of each function call. Therefor, `decorators` can manipulate with values passed to the function arguments and return values of the functions. These decorators are used for wide variate of cases. This functionality can be used in debugging, enforcing semantics, registering functions. 
 
-For exsample, we want to have a log function, which will print arguments and corresponding return values. This can be helpful in debugging nested function calls. Let's define our decorator function using `*args` and `**kwargs`:
+For example, we want to have a log function, which will print arguments and corresponding return values. This can be helpful in debugging nested function calls. Let's define our decorator function using `*args` and `**kwargs`:
 ```python
 def trace(func):
     def wrapper(*args, **kwargs):
@@ -709,7 +709,68 @@ def fibonacci(n):
         return n
     return (fibonacci(n - 2) + fibonacci(n - 1))
 ```
-This is eauvalent to the 
+It is equivalent to the: 
+```python
+fibonacci = trace(fibonacci)
+```
+The decorated function run wrapper function code before and after fibonacci runs. 
+```python
+fibonacci(4)
+```
+    >>>
+    fibonacci((0,), {}) -> 0
+    fibonacci((1,), {}) -> 1
+    fibonacci((2,), {}) -> 1
+    fibonacci((1,), {}) -> 1
+    fibonacci((0,), {}) -> 0
+    fibonacci((1,), {}) -> 1
+    fibonacci((2,), {}) -> 1
+    fibonacci((3,), {}) -> 2
+    fibonacci((4,), {}) -> 3
+
+The problem is that value returned by this function, doesn't think its called fibonacci:
+```python
+print(fibonacci)
+```
+    >>>
+    <function trace.<locals>.wrapper at 0x7f0103ccfee0>
+
+Now, debugger won't work and things like `help()` won't work either. We would expect that `help()` function will return our doc string `"""Returns n-th Fibonacci number"""`, but it doesn't:
+```python
+help(fibonacci)
+```
+    >>>
+    Help on function wrapper in module __main__:
+
+    wrapper(*args, **kwargs)
+
+Also, object serializers break because they cannot determine the location of the original function that been decorated:
+```python
+import pickle 
+
+
+pickle.dumps(fibonacci)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    AttributeError: Can't pickle local object 'trace.<locals>.wrapper'
+
+The sulution is to use `wraps` decorator from `functools` build-in. This is decorator to write decorators. When you use it, it copies all the inner information of the function, and makes it available to the outer function:
+```python
+from functools import wraps
+
+
+def trace(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        print(f"{func.__name__}({args!r}, {kwargs!r}) "
+                f"-> {result!r}")
+        return result
+    return wrapper
+```
+Now `help()` and `pickle.dumps()` will work correctly. Moreover, functions in Python have many other important attributes, which will be available with help of the `@wraps` decorator.  
 
 #
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
