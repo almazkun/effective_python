@@ -120,7 +120,65 @@ print(filtered)
 
 * general rule of thumb is not to use more than two control subexpressions in comprehensions. It could be two `for` loops, one `for` loop and one `if` statement, or two `if` statements. Beyond that, it is better to switch to the normal `if`and `for` statements and writing a helper functions.
 
+## Item 29: Avoid Repeated Work in Comprehensions by Using Assignment Expressions
+A common pattern of using all type of comprehension is the need to reffrence them in multiple places. 
 
+* for example, we need to write a program for order handling. When a new order comes we need to tell if you can fullfil the order. We need to verify if we have enough of stock and it is above of the minimal threshold for shipment(8):
+```python
+
+stock = {
+    "nails": 125,
+    "screws": 35,
+    "wingnuts": 8,
+    "washers": 24,
+}
+
+order = ["screws", "wingnuts", "clips"]
+
+def get_batches(count, size):
+    return count // size
+
+result = {}
+
+for name in order:
+    count = stock.get(name, 0)
+    batches = get_batches(count, 8)
+    if batches:
+        result[name] = batches
+
+print(result)
+```
+    >>>
+    {'screws': 4, 'wingnuts': 1}
+
+* We can rewrite `for` statement using dict-comprehension following way:
+```python
+found = {name: get_batches(stock.get(name, 0), 8)
+        for name in order
+        if get_batches(stock.get(name, 0), 8)}
+print(found)
+```
+    >>>
+    {'screws': 4, 'wingnuts': 1}
+
+Although, this is more compact, the `get_batches(stock.get(name, 0), 8)` is repeated. This hurts readability and technically unnecessary. Moreover, it is bug prone, if we letter decided to change the batch size to 4 and make change only in one place of the code, we will end up with different results:
+```python
+has_bug = {name: get_batches(stock.get(name, 0), 4)
+            for name in order
+            if get_batches(stock.get(name, 0), 8)}  
+
+print("Expected:", found)
+print("Found:", has_bug)
+```
+    >>>
+    Expected: {'screws': 4, 'wingnuts': 1}
+    Found: {'screws': 8, 'wingnuts': 2}
+
+An easy solution to this is use `walrus` assignment, to make assignment as a part of the comprehension:
+```python
+found = {name: batches for name in order
+        if (batches := get_batches(stock.get(name, 0), 8))}
+```
 
 
 
