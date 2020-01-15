@@ -64,8 +64,61 @@ alt_dict = dict(map(lambda x: (x, x**2),
                 filter(lambda x: x % 2 == 0, a)))
 alt_set = set(map(lambda x: x **3, 
             filter(lambda x: x % 3 == 0, a)))
+```
 
+## Item 28: Avoid More Than Two Control Subexpressions in Comprehensions
+Beyond simple usage, comprehensions allow using multiple level of lopping. 
 
+* For example, we want to flatten a matrix in to a list:
+```python
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+flat = [x for row in matrix for x in row]
+print(flat)
+```
+    >>>
+    [1, 2, 3, 4, 5, 6, 7, 8, 9]
+This example is readable and straightforward. The usage of comprehension is reasonable. 
+
+* Another reasonable usage of list-comprehension would be replacing two-level-dip replacement of the input list. Like in the example of the squared values of two dimensional matrix. This list-comprehension is little more noisier, but still relatively easy to read:
+```python
+squared = [[x**2 for x in row] for row in matrix]
+print(squared)
+```
+    >>>
+    [[1, 4, 9], [16, 25, 36], [49, 64, 81]]
+
+* However, if this comprehension were with more loops it would become al long as the regular `for loop` construction and harder to read, even. 
+```python
+my_list = [[1, 2, 4], [4, 5, 6],]
+    ...
+
+flat = [x for sublist_1 in my_list
+        for sublist_2 in sublist_1
+        for x in sublist_2]
+```
+Here, is the regular `for loop` statemnent producing same result:
+```python
+flat = []
+for sublist_1 in my_list:
+    for sublist_2 in sublist_1:
+        flat.extend(sublist_2)
+```
+
+* Comprehensions support multiple `if` conditions. Basically, there could be an `if`, `or`, `and` condition after each `for` subexpression. Following comprehensions are examples of overloaded list-comprehensions and should be avoided, difficulty of reading and comprehending:
+```python
+a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+b = [x for x in a if x > 4 if x % 2 == 0]
+c = [x for x in a if x > 4 and x % 2 == 0] # It is equivalent to the b code
+
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+filtered = [[x for x in row if x % 3 == 0]
+                for row in matrix if sum(row) >= 10]
+print(filtered)
+```
+    >>>
+    [[6], [9]]
+
+* general rule of thumb is not to use more than two control subexpressions in comprehensions. It could be two `for` loops, one `for` loop and one `if` statement, or two `if` statements. Beyond that, it is better to switch to the normal `if`and `for` statements and writing a helper functions.
 
 
 
