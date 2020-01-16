@@ -244,9 +244,72 @@ print(next(found))
     ('screws', 4)
     ('wingnuts', 1)
 
+## Item 30: Consider Generators Instead of Returning List
+The simplest choice for a function that produces sequence of results is to return a list of items. For example, we want to have an index of every word in the string. Here we accumulate avery index in a `list` using `append` and return it at the end of the function:
+```python
+def index_words(text):
+    result = []
+    if text:
+        result.append(0)
+    for index, letter in enumerate(text):
+        if letter == " ":
+            result.append(index + 1)
+    return 
+    
+```
+This works as expected for small simple cases:
+```python
+address = 'Four score and seven years ago...'
+result = index_words(address)
+print(result[:10])
+```
+    >>>
+    [0, 5, 11, 15, 21, 27, 31, 35, 43, 51]
 
+There is two problems with `index_words` function:
+1. This code is noisy, and bulky. 
 
+using generator it can be done more succinctly:
+```python
+def index_words_iter(text):
+    if text:
+        yield 0
+    for index, letter in enumerate(text):
+        if letter == " ":
+            yield index + 1
 
+it = index_words_iter(text)
+print(next(it))
+print(next(it))
+```
+    >>>
+    0
+    5
+
+We can convert results of the generator to the `list` easily:
+```python
+result = list(index_words_iter(text))
+print(result[:10])
+```
+    >>>
+    [0, 5, 11, 15, 21, 27, 31, 35, 43, 51]
+
+2. If big text is passed to the `index_words` function is passed, it will eat all the memory available and probably crush, because of the results needs to be stored in the `list` and returned only after it finishes all the computations. 
+
+Where in generator it only requires memory for a single loop instance. Thus it can iterate through very big files. Following version of the generator is adapted to work with on line from a file and yields output one words at a time:
+```python
+def index_file(handle):
+    offset = 0
+    for line in handle:
+        if line:
+            yield offset
+        for letter in line:
+            offset += 1
+            if letter == ' ':
+                yield offset
+
+```
+ 
 
 
 
