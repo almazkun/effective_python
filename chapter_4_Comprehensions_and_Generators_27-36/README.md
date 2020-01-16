@@ -183,11 +183,66 @@ found = {name: batches for name in order
 Assignment expression `batches := get_batches(...)` allows me to get values for each `order` key in the stock dictionary a single time, call `get_batches` only once, and store its corresponding value in the batches variable. I can then reference this variable else where in the comprehension to construct a `dict`s content, without calling `get_batches` a second time. Eliminating unnecessary calls to `get` and `get_batches` may also improve performance. 
 
 It's a valid syntax to define a assignment expression in the value expression of the comprehension. However, if you try to reference the variable in other parts og the comprehension we might get a exception, do to the order in which comprehensions are evaluated:
+```python
+result = {name: (tenth := count // 10)
+            for name, count in stock.items() if tenth > 0}
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 2, in <dictcomp>
+    NameError: name 'tenth' is not defined
 
+This error can be fixed by moving the assignment expression in the condition and then referencing variable name its defined in the comprehension's value expression:
+```python
+result = {name: tenth for name, count in stock.items()
+            if (tenth := count // 10) > 0}
+```
+    >>>
+    {'nails': 12, 'screws': 3, 'washers': 2}
 
+If comprehension uses the walrus operator in the value part of the comprehension and doesn't have a condition, it'll leak the loop variable in to the containing scope. 
+```python
+half = [(last := count // 2) for count in stock.values()]
+print(f"Last item of {half} is {last}")
+```
+    >>>
+    Last item of [62, 17, 4, 12] is 12
 
+This leakage of the loop variable is similar to what happens in regular `for` loop statements:
+```python
+for count in stock.values(): # Leaks loop variable
+    pass
 
+print(f"Last item of {list(stock.values())} is {count}")
+```
+    >>>
+    Last item of [125, 35, 8, 24] is 24
 
+However, the for loop variable of the comprehension does not leak:
+```python
+half = [count // 2 for count in stock.values()]
+print(half) # Works
+print(count) # Exception because loop variable doesn't leak
+```
+    >>>
+    [62, 17, 4, 12]
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    NameError: name 'count' is not defined
+
+It is better **not to leak** loop variables, so it is recommended to use assignment expressions only in the condition part of a comprehensions. 
+
+Assignment expressions works in similar way in the generator expressions:
+```python
+found = ((name, batches) for name in order
+            if (batches := get_batches(stock.get(name, 0), 8)))
+print(next(found))
+print(next(found))
+```
+    >>>
+    ('screws', 4)
+    ('wingnuts', 1)
 
 
 
