@@ -510,7 +510,7 @@ if name in None:
 ```
 
 * it can be made even shorter if new assignment operator is used:
-```pyhton
+```python
 if (names := votes.get(key)) in None:
     votes[key] = names = []
 ```
@@ -538,7 +538,7 @@ print("After:", data)
 In conclusion: better to use `get` method, and safe `setdefault` method for very specific situations. 
 
 ## Item 17: Prefer `defaultdict` over `setdefault` to Handling Missing Items in Internal State
-When working with `dict`s you haven't create there are viriety of ways to handle missing keys. `get` or `setdefault` methods. Sometimes `setdefault` method is shortest one to use:
+When working with `dict`s you haven't create there are variety of ways to handle missing keys. `get` or `setdefault` methods. Sometimes `setdefault` method is shortest one to use:
 ```python
 visits = {'Mexico': {'Tulum', 'Puerto Vallarta'},'Japan': {'Hakone'},}
 

@@ -96,7 +96,7 @@ flat = [x for sublist_1 in my_list
         for sublist_2 in sublist_1
         for x in sublist_2]
 ```
-Here, is the regular `for loop` statemnent producing same result:
+Here, is the regular `for loop` statement producing same result:
 ```python
 flat = []
 for sublist_1 in my_list:
@@ -121,7 +121,7 @@ print(filtered)
 * general rule of thumb is not to use more than two control subexpressions in comprehensions. It could be two `for` loops, one `for` loop and one `if` statement, or two `if` statements. Beyond that, it is better to switch to the normal `if`and `for` statements and writing a helper functions.
 
 ## Item 29: Avoid Repeated Work in Comprehensions by Using Assignment Expressions
-A common pattern of using all type of comprehension is the need to reffrence them in multiple places. 
+A common pattern of using all type of comprehension is the need to reference them in multiple places. 
 
 * for example, we need to write a program for order handling. When a new order comes we need to tell if you can fullfil the order. We need to verify if we have enough of stock and it is above of the minimal threshold for shipment(8):
 ```python
@@ -179,6 +179,12 @@ An easy solution to this is use `walrus` assignment, to make assignment as a par
 found = {name: batches for name in order
         if (batches := get_batches(stock.get(name, 0), 8))}
 ```
+
+Assignment expression `batches := get_batches(...)` allows me to get values for each `order` key in the stock dictionary a single time, call `get_batches` only once, and store its corresponding value in the batches variable. I can then reference this variable else where in the comprehension to construct a `dict`s content, without calling `get_batches` a second time. Eliminating unnecessary calls to `get` and `get_batches` may also improve performance. 
+
+It's a valid syntax to define a assignment expression in the value expression of the comprehension. However, if you try to reference the variable in other parts og the comprehension we might get a exception, do to the order in which comprehensions are evaluated:
+
+
 
 
 

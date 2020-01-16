@@ -316,7 +316,7 @@ log('Favorite numbers', 7, 33)      # WRONG Old usage breaks
     1 - Hi there
     Favorite numbers - 7: 33
 
-This kind of bugs are hurd to track down because function runs without exception. To avoide this, you can add new functionality by using keyword-only arguments or, even more robust, use type annotation. 
+This kind of bugs are hurd to track down because function runs without exception. To avoid this, you can add new functionality by using keyword-only arguments or, even more robust, use type annotation. 
 
 ## item 23: Provide Optional Behavior with Keyword Arguments
 In Python argument to a function call maybe positional or keyword. You may use keyword-only arguments in any order in the call:
@@ -436,7 +436,7 @@ pounds_per_hour = flow_rate(weight_diff, time_diff, 3600, 2.2)
 
 
 ## Item 24: Use `None` and Docstrings to Specify Dynamic Default Argument
-Sometimes you need to make a non-static type the default value. For instance, like in logger function, you want to print time of event occurrenc:
+Sometimes you need to make a non-static type the default value. For instance, like in logger function, you want to print time of event occurrence:
 ```python
 from time import sleep
 from datetime import datetime
@@ -487,7 +487,7 @@ def decode(data, default={}):
     except ValueError:
         return default
 ```
-The problem is that deafult `dict` will be shared with all the call of the function. Because it will be defined only once at module loading. Which will have a surprising behavior:
+The problem is that default `dict` will be shared with all the call of the function. Because it will be defined only once at module loading. Which will have a surprising behavior:
 ```python
 foo = decode("bad date")
 foo["stuff"] = 5
@@ -501,7 +501,7 @@ We were expecting two different dictionaries but change in first is affecting th
 ```python
 assert foo is bar
 ```
-Not to have this problem we shpuld default to `None` and explain behaviour in docstring:
+Not to have this problem we should default to `None` and explain behavior in docstring:
 ```python 
 def decode(data, default=None):
     """Load JSON data from a string.
@@ -756,7 +756,7 @@ pickle.dumps(fibonacci)
       File "<stdin>", line 1, in <module>
     AttributeError: Can't pickle local object 'trace.<locals>.wrapper'
 
-The sulution is to use `wraps` decorator from `functools` build-in. This is decorator to write decorators. When you use it, it copies all the inner information of the function, and makes it available to the outer function:
+The solution is to use `wraps` decorator from `functools` build-in. This is decorator to write decorators. When you use it, it copies all the inner information of the function, and makes it available to the outer function:
 ```python
 from functools import wraps
 
