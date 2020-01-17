@@ -322,5 +322,70 @@ with open("address.txt", "r") as f:
 
 The only gotcha with generators is that returned values are stateful and cannot be reused.
 
+## Item 31: Be Defensive When Iterating Over Arguments
+When function takes a `list` of objects as a parameter, it is often important to iterate over it multiple times. For example, we want to analyse the number of tourist visited US Texas. Dataset is the number of tourist visited each city. We need to find percentage for this number. 
+
+Do do this we need normalization function that sums the input to determine the total number of visits and then divided it by each city's tourist number:
+```python
+def normalize(numbers):
+    total = sum(numbers)
+    result = []
+    for value in numbers:
+        percent = 100 * value / total
+        result.append(percent)
+    return result
+```
+This function work as expected when given a list of numbers:
+```python
+visits = [15, 35, 80]
+percentages = normalize(visits)
+print(percentages)
+assert sum(percentages) == 100
+```
+    >>>
+    [11.538461538461538, 26.923076923076923, 61.53846153846154]
+
+To scale it up, we define a generator, to read data from a file that contains information about all the cities in Texas. 
+```python
+def read_visits(data_path):
+    with open(data_path, "r") as f:
+        for line in f:
+            yield int(line)
+```
+Surprisingly, calling `normalize` over `read_visits` gives no results:
+```python
+it = read_visits("my_numbers.txt")
+percentages = normalize(it)
+print(percentages) 
+```
+    >>>
+    []
+
+This happens because a generator yields values only once. If a generator already risen `StopIteration` exception, it won't produce any results any more:
+```python
+it = read_visits("my_numbers.txt")
+print(list(it))
+print(list(it)) # Already exhausted!
+```
+    >>>
+    [15, 35, 80]
+    []
+
+Confusingly, it won't raise and exception when iterating over already exhausted iterator. Functions in Python can't tell the difference between iterators that has no output and iterators that had an output but been exhausted.
+
+To solve this problem, we can copy the entire output of the generator to the `list` and then iterate over `list` version of our data. 
+```python
+def normalize_copy(numbers):
+    numbers_copy = list(numbers)
+
+total = sum(numbers_copy)
+result = []
+
+for value in numbers_copy
+
+
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
