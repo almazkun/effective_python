@@ -105,3 +105,5 @@ venv.bak/
 
 # local secret file
 *secret*
+
+.vscode
