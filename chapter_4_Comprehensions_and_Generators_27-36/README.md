@@ -296,8 +296,11 @@ print(result[:10])
 
 2. If big text is passed to the `index_words` function is passed, it will eat all the memory available and probably crush, because of the results needs to be stored in the `list` and returned only after it finishes all the computations. 
 
-Where in generator it only requires memory for a single loop instance. Thus it can iterate through very big files. Following version of the generator is adapted to work with on line from a file and yields output one words at a time:
+Where in generator it only requires memory for a single loop instance. Thus it can iterate through very big files. Following version of the generator is adapted to work with one line from a file:
 ```python
+import itertools
+
+
 def index_file(handle):
     offset = 0
     for line in handle:
@@ -308,12 +311,16 @@ def index_file(handle):
             if letter == ' ':
                 yield offset
 
+
+with open("address.txt", "r") as f:
+    it = index_file(f)
+    results = itertools.islice(it, 0, 10)
+    print(list(results))
 ```
- 
+    >>>
+    [0, 5, 11, 15, 21, 27, 31, 35, 43, 51]
 
-
-
-
+The only gotcha with generators is that returned values are stateful and cannot be reused.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
