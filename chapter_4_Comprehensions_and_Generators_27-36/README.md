@@ -376,16 +376,114 @@ Confusingly, it won't raise and exception when iterating over already exhausted 
 To solve this problem, we can copy the entire output of the generator to the `list` and then iterate over `list` version of our data. 
 ```python
 def normalize_copy(numbers):
-    numbers_copy = list(numbers)
+    numbers_copy = list(numbers) # Copy the iterator
+    total = sum(numbers_copy)
+    result = []
+    for value in numbers_copy:
+        percent = 100 * value / total
+        result.append(percent)
+    return result
 
-total = sum(numbers_copy)
-result = []
+Now, the code will work correctly:
+```python
+it = read_visits('my_numbers.txt')
+percentages = normalize_copy(it)
+print(percentages)
+assert sum(percentages) == 100.0
+```
+But, the content of the iterator may by extremely large, this is actually defeating the idea of writing the generator in the first place. The other way around is to return new iterator each call:
+```python
+def normalize_func(get_iter):
+    total = sum(get_iter()) # New iterator
+    result =[]
+    for value in get_iter(): # New iterator
+        percent = 100 * value / total
+        result.append(percent)
+    return result
+```
+To use `normalize_func` we can use a `lambda` function that calls a generator and produces a new generator each time:
+```python
+path = 'my_numbers.txt'
+percentages = normalize_func(lambda: read_visits(path))
+print(percentages)
+assert sum(percentages) == 100.0
+```
+    >>>
+    [11.538461538461538, 26.923076923076923, 61.53846153846154]
+Although it works, it doesn't look very good. To make it better we can make a container class with implemented *iterator protocol* 
 
-for value in numbers_copy
+THe iterator protocol is how Python `for` loops and related expressions traverse content of a container type. When python sees the statement like `for x in foo`, it actually calls `iter(foo)`. The `iter()` built-in function calls `foo.__iter__` special method in turn. The `__iter__` method must return an iterator object (which itself implements `__next__` special method). Then, the `for` loop repeatedly called `next` built-in function on the iterator object until its exhausted (indicated by raising *StopIteration* exception).
+
+It sounds complicated, but it is in fact easy to implement in classes with `__iter__` method as a generator. Here, we define a container class which reads content of the file:
+```python
+class ReadVisits:
+    def __init__(self, data_path):
+        self.data_path = data_path
+    def __iter__(self):
+        with open(self.data_path) as f:
+            for line in f:
+                yield int(line)
+```
+Now, this work with the original function:
+```python
+visits = ReadVisits(path)
+percentages = normalize(visits)
+print(percentages)
+assert sum(percentages) == 100.0
+```
+    >>>
+    [11.538461538461538, 26.923076923076923, 61.53846153846154]
+This works because `sum` and `for` loop calls `ReadVisits.__iter__` method each independently and ensures that each of them gets full iterator to process. The only downside is that it reads the input data multiple times. 
+
+To go further, we can test if the input can be iterated over and, if its not, to raise and exception:
+```python
+def normalize_defensive(numbers):
+    if iter(numbers) is numbers: # An iterator -- bad!
+        raise TypeError("Must supply a container")
+    total = sum(numbers)
+    result = []
+    for value in numbers:
+        percent = 100 * value / total
+        result.append(percent)
+    return result
+```
+Alternatively, the `collections.abc` built-in module provides `Iterator` class that can be used in `isinstance` test to recognize a potential problem:
+```python
+from collections.abc import Iterator
 
 
+def normalize_defensive(numbers):
+    if isinstance(numbers, Iterator): # Another way to check
+        raise TypeError("Must supply a container")
+    total = sum(numbers)
+    result = []
+    for value in numbers:
+        percent = 100 * value / total
+        result.append(percent)
+    return result
+```
+This approach is ideal if you don't want to copy full iterator, but need to access it multiple times. This function works well with `list` and `ReadVisits` inputs because they are iterable containers:
+```python
+visits = [15, 25, 80]
+percentages = normalize_defensive(visits)
+assert sum(percentages) == 100.0
 
-
+visits = ReadVisits(path)
+percentages = normalize_defensive(visits)
+assert sum(percentages) == 100.0
+```
+The function will raise an error if iterator is supplied:
+```python
+visits = [15, 25, 80]
+it = iter(visits)
+normalize_defensive(it)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 3, in normalize_defensive
+    TypeError: Must supply a container
+This approach is also works for asynchronous iterators.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)

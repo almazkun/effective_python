@@ -107,3 +107,5 @@ venv.bak/
 *secret*
 
 .vscode
+utils.py
+my_numbers.txt
