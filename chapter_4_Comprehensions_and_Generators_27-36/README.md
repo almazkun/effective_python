@@ -391,6 +391,7 @@ percentages = normalize_copy(it)
 print(percentages)
 assert sum(percentages) == 100.0
 ```
+
 But, the content of the iterator may by extremely large, this is actually defeating the idea of writing the generator in the first place. The other way around is to return new iterator each call:
 ```python
 def normalize_func(get_iter):
@@ -401,6 +402,7 @@ def normalize_func(get_iter):
         result.append(percent)
     return result
 ```
+
 To use `normalize_func` we can use a `lambda` function that calls a generator and produces a new generator each time:
 ```python
 path = 'my_numbers.txt'
@@ -410,6 +412,7 @@ assert sum(percentages) == 100.0
 ```
     >>>
     [11.538461538461538, 26.923076923076923, 61.53846153846154]
+
 Although it works, it doesn't look very good. To make it better we can make a container class with implemented *iterator protocol* 
 
 THe iterator protocol is how Python `for` loops and related expressions traverse content of a container type. When python sees the statement like `for x in foo`, it actually calls `iter(foo)`. The `iter()` built-in function calls `foo.__iter__` special method in turn. The `__iter__` method must return an iterator object (which itself implements `__next__` special method). Then, the `for` loop repeatedly called `next` built-in function on the iterator object until its exhausted (indicated by raising *StopIteration* exception).
@@ -433,6 +436,7 @@ assert sum(percentages) == 100.0
 ```
     >>>
     [11.538461538461538, 26.923076923076923, 61.53846153846154]
+
 This works because `sum` and `for` loop calls `ReadVisits.__iter__` method each independently and ensures that each of them gets full iterator to process. The only downside is that it reads the input data multiple times. 
 
 To go further, we can test if the input can be iterated over and, if its not, to raise and exception:
@@ -447,6 +451,7 @@ def normalize_defensive(numbers):
         result.append(percent)
     return result
 ```
+
 Alternatively, the `collections.abc` built-in module provides `Iterator` class that can be used in `isinstance` test to recognize a potential problem:
 ```python
 from collections.abc import Iterator
@@ -462,6 +467,7 @@ def normalize_defensive(numbers):
         result.append(percent)
     return result
 ```
+
 This approach is ideal if you don't want to copy full iterator, but need to access it multiple times. This function works well with `list` and `ReadVisits` inputs because they are iterable containers:
 ```python
 visits = [15, 25, 80]
@@ -472,6 +478,7 @@ visits = ReadVisits(path)
 percentages = normalize_defensive(visits)
 assert sum(percentages) == 100.0
 ```
+
 The function will raise an error if iterator is supplied:
 ```python
 visits = [15, 25, 80]
@@ -483,7 +490,46 @@ normalize_defensive(it)
       File "<stdin>", line 1, in <module>
       File "<stdin>", line 3, in normalize_defensive
     TypeError: Must supply a container
+
 This approach is also works for asynchronous iterators.
+
+## Item 32: Consider Generator Expressions for Large List Comprehensions
+Problem with list comprehensions is they are creating a `list` with a single value for each value of the input sequence. This is fine for small input, but a large input will consume all the memory and crash a program.
+
+For example, we want to read a file and return the number of characters of each line. Here is a list comprehension which require to hold length of every line in memory:
+```python
+value = [len(x) for x in open("my_numbers.txt")]
+print(value)
+```
+    >>>
+    [100, 57, 15, 1, 12, 75, 5, 86, 89, 11]
+
+To solve this issue, Python has generator expressions, which are generalizations of list comprehensions and generators. As a normal generators, they don't hold the whole input in the memory, but yield one item at the time. 
+
+To make a generator expression we need to put list comprehension in `()`. The previous syntax made generator, but with the generator object as a output:
+```python
+it = (len(x) for x in open("my_numbers.txt"))
+print(it)
+```
+    >>>
+    <generator object <genexpr> at 0x000002603BC56248>
+```python
+print(next(it))
+print(next(it))
+```
+    >>>
+    100
+    57
+
+Another powerful outcome of the generator is that they can be composed together. One generator is taken as a input for another generator:
+```python
+roots = ((x, x**0.5) for x in it)
+print(next(roots))
+```
+    >>>
+    (15, 3.872983346207417)
+THe calling last generator will trigger previous iterator and they will together move through the sequence. 
+However, it is sample, they can work with large inputs efficiently, this outputs are stateful, be aware of using them multiple times. 
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
