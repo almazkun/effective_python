@@ -531,5 +531,114 @@ print(next(roots))
 THe calling last generator will trigger previous iterator and they will together move through the sequence. 
 However, it is sample, they can work with large inputs efficiently, this outputs are stateful, be aware of using them multiple times. 
 
+
+## Item 33: Compose Multiple Generators with `yield from`
+Using generators has variety of benefits and solutions to common problems. Generators are so useful that many programs seems like layers of generators strung together.
+
+For exsample, we need a program to display movements on the screen. TO make an animation we need 2 functions, one for movement and one to stop:
+```python
+def move(period, speed):
+    for _ in range(0, period):
+        yield speed
+
+
+def pause(delay):
+    for _ in range(0, delay):
+        yield 0
+```
+
+To create tje animation, we need to combine `move` and `pause` together to produce single sequence of on screen deltas. We will do this by calling a generator for each step of the animation, iterating over each generator in turn, and then yielding the deltas from all of them in sequence:
+```python
+def animate():
+    for delta in move(4, 5.0):
+        yield delta
+    for delta in pause(10):
+        yield delta
+    for delta in move(2, 3.0):
+        yield delta
+```
+ANd now, we need render those deltas on screen as they are produced by single `animation` generator:
+```python
+def render(delta):
+    print(f"Delta: {delta:.1f}")
+    # Move the image onscreen
+    ...
+
+def run(func):
+    for delta in func():
+        render(delta)
+
+run(animate)
+```
+    >>>
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 0.0
+    Delta: 0.0
+    Delta: 0.0
+    Delta: 3.0
+    Delta: 3.0
+
+The problem with this code is the repetitive nature of the `animate` function. Redundancy of `for` statements and `yield` expressions for each generator adds noise and hurts readability. This example has only three nested generators, but it is already hard to read. Example with more complex movements will be much harder to follow.
+
+The solution to this problem is to use `yield from` expression. This advance generator feature allows you to yield all the values from the nested generator before returning control to the parent generator. Here, is the `animate` function written using `yield from`:
+```python
+def animate_composed():
+    yield from move(4, 5.0)
+    yield from pause(3)
+    yield from move(2, 3.0)
+
+run(animate_composed)
+```
+    >>>
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 5.0
+    Delta: 0.0
+    Delta: 0.0
+    Delta: 0.0
+    Delta: 3.0
+    Delta: 3.0
+
+The result is the same, but function is clearer and makes python take care of `for` and `yield` expressions using `yield from`. It is, also, has better performance:
+```python
+import timeit
+
+def child():
+    for i in range(1_000_000):
+        yield i
+
+def slow():
+    for i in child():
+        yield i
+
+def fast():
+    yield from child()
+
+
+baseline = timeit.timeit(
+    stmt="for _ in slow(): pass",
+    globals=globals(),
+    number=50)
+print(f"Manual nesting {baseline:.2f}s")
+
+comparison = timeit.timeit(
+    stmt="for _ in fast(): pass",
+    globals=globals(),
+    number=50
+)
+print(f"Composed nesting {comparison:.2f}s")
+
+reduction = (baseline - comparison) / baseline
+print(f"{reduction:.1%} less time")
+```
+    >>>
+    Manual nesting 9.50s
+    Composed nesting 8.63s
+    9.2% less time
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
