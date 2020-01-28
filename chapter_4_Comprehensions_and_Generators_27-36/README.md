@@ -640,5 +640,86 @@ print(f"{reduction:.1%} less time")
     Composed nesting 8.63s
     9.2% less time
 
+Item 34: Avoid Injecting Data Into Generator Using `send`
+
+`yield` provides generators with a handy way to produce an iterable series of output values.But it is unidirectional. There is now immediately obvious way to simultaneously stream in and out of generator as it runs. Having such a bidirectional communication with a generator could be valuable in variety of ways.
+
+For example, we need to write a program to transmit a signal using software-defined radio. Here, is a function to generate an approximation of a sine wave with a given numbers of points:
+```python
+import math
+
+
+def wave(amplitude, steps):
+    step_size = 2 * math.pi / steps
+    for step in range(steps):
+        radians = step * step_size
+        fraction = math.sin(radians)
+        output = amplitude * fraction
+        yield output
+```
+Now, I can transmit the wave signal at a single specified amplitude by iterating over `wave` generator:
+```python
+def transmit(output):
+    if output is None:
+        print(f"Output is none")
+    else:
+        print(f"Output:{output:>5.1f}")
+
+def run(it):
+    for output in it:
+        transmit(output)
+
+run(wave(3.0, 8))
+```
+    >>>
+    Output:  0.0
+    Output:  2.1
+    Output:  3.0
+    Output:  2.1
+    Output:  0.0
+    Output: -2.1
+    Output: -3.0
+    Output: -2.1
+This works fine for producing a basic waveforms, but it can't be used to constantly vary the amplitude of the wave based on separate input (i.e., as required to broadcast a AM radio signals). We need a way to modulate a the amplitude for each iteration of a generator.
+
+Python generators support `send` method, which upgrades `yield` expressions into two-way channel. The `send` method can be used to provide a streaming input to the generator at the same time it's yielding outputs. Normally, when iterating a generator, the value of the `yield` expression is `None`:
+```python
+def my_generator():
+    received = yield 1
+    print(f"received = {received}")
+
+it = iter(my_generator())
+output = next(it)           # Get first generator output
+print(f"output = {output}")
+try:
+    next(it)                # Runs generator until it exists
+except StopIteration:
+    pass
+```
+    >>>
+    output = 1
+    received = None
+When we call `send` method instead iterating the generator with `for` loop or `next` built-in function, the supplied parameter becomes value of the `yield` expression the the generator is resumed.
+However, when a generator first start, a `yield` expression is has not been encountered yet, so the only valid value for calling `send` is `None` (any other argument would raise an exception at runtime):
+```python
+it = iter(my_generator())
+output = it.send(None)      # Get generator output
+print(f"output = {output}")
+
+try:
+    it.send("hello!")       # Send value into the generator
+except StopIteration:
+    pass
+```
+    >>>
+    output = 1
+    received = hello!
+
+
+
+
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
