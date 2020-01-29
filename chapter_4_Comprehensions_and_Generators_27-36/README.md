@@ -535,7 +535,7 @@ However, it is sample, they can work with large inputs efficiently, this outputs
 ## Item 33: Compose Multiple Generators with `yield from`
 Using generators has variety of benefits and solutions to common problems. Generators are so useful that many programs seems like layers of generators strung together.
 
-For exsample, we need a program to display movements on the screen. TO make an animation we need 2 functions, one for movement and one to stop:
+For example, we need a program to display movements on the screen. TO make an animation we need 2 functions, one for movement and one to stop:
 ```python
 def move(period, speed):
     for _ in range(0, period):
@@ -661,7 +661,7 @@ Now, I can transmit the wave signal at a single specified amplitude by iterating
 ```python
 def transmit(output):
     if output is None:
-        print(f"Output is none")
+        print(f"Output is None")
     else:
         print(f"Output:{output:>5.1f}")
 
@@ -714,12 +714,134 @@ except StopIteration:
     >>>
     output = 1
     received = hello!
+To use `send` method we need to change our wave generator.
+```python
+def wave_modulating(steps):
+    step_size = 2 * math.pi / steps
+    amplitude = yield                   # Receive initial amplitude
+    for step in range(steps):
+        radians = step * step_size
+        fraction = math.sin(radians)
+        output = amplitude * fraction
+        amplitude = yield output        # Receive next amplitude
+```
+Also, we need to change the `run()` function. 
+```python
+def run_modulating(it):
+    amplitudes = [
+        None, 7, 7, 7, 2, 2, 2, 2, 10, 10, 10, 10,]
+    for amplitude in amplitudes:
+        output = it.send(amplitude)
+        transmit(output)
 
+run_modulating(wave_modulating(12))
+```
+    >>>
+    Output is None
+    Output:  0.0
+    Output:  3.5
+    Output:  6.1
+    Output:  2.0
+    Output:  1.7
+    Output:  1.0
+    Output:  0.0
+    Output: -5.0
+    Output: -8.7
+    Output:-10.0
+    Output: -8.7
+This works. But it has problems. First, it is difficult for a new reader to understand: using yield on the right side is not intuitive and it is hard to understand the link between `yield` and `send` without knowing advanced generator feature. 
 
+Now, imagine program requirements are changed. We need to use more complex waveform consisting of multiple signals in sequence. One way to implement this is by composing multiple generators using `yield from` expression:
+```python
+def complex_wave():
+    yield from wave(7.0, 3)
+    yield from wave(2.0, 4)
+    yield from wave(10.0, 5)
 
+run(complex_wave())
+```
+    >>>
+    Output:  0.0
+    Output:  6.1
+    Output: -6.1
+    Output:  0.0
+    Output:  2.0
+    Output:  0.0
+    Output: -2.0
+    Output:  0.0
+    Output:  9.5
+    Output:  5.9
+    Output: -5.9
+    Output: -9.5
+This works with simple wave, it also works with `send` method. Here is the example of composing multiple calls to the `wave_modulating()` generator together:
+```python
+def complex_wave_modulating():
+    yield from wave_modulating(3)
+    yield from wave_modulating(5)
+    yield from wave_modulating(4)
 
+run_modulating(complex_wave_modulating())
+```
+    >>>
+    Output is None
+    Output:  0.0
+    Output:  6.1
+    Output: -6.1
+    Output is None
+    Output:  0.0
+    Output:  1.9
+    Output:  1.2
+    Output: -5.9
+    Output: -9.5
+    Output is None
+    Output:  0.0
+This works, but there is a surprise: There are many `None` values. It happens because each `yield from` starts with bare `yield` - without a value - to receive a value from `send` method. This cause the parent generator to output `None` for each transition between child generators.
 
+THis mean that even that these approaches work individually, will be broken when used together. Although, it's possible to modify `run_modulation` function to work around `None`, it does not worth a trouble. It is already complicated to understand how `send` works. The surprising effect of the `yield from` is even worse. We should avoid `send` method altogether and use simpler approach.
 
+The easiest solution is to pass and iterator into the `wave()` function. The iterator should return an input amplitude each time the `next` build-in function is called. This arrangement ensures that each generator is progressed in a cascade as input and outputs a processed:
+```python
+def wave_cascading(amplitude_it, steps):
+    step_size = 2 * math.pi / steps
+    for step in range(steps):
+        radians = step * step_size
+        fraction = math.sin(radians)
+        amplitude = next(amplitude_it)  # Get next input
+        output = amplitude * fraction
+        yield output
+```
+We can pass the same iterator into each child generator functions, because iterators are stateful and each child generator will start from the place where previous one has ended:
+```python
+def complex_wave_cascading(amplitude_it):
+    yield from wave_cascading(amplitude_it, 3)
+    yield from wave_cascading(amplitude_it, 4)
+    yield from wave_cascading(amplitude_it, 5)
+```
+Now, we can run the composed generators by simply passing in an iterator from `amplitudes list:
+```python
+def run_cascading():
+    amplitudes = [7, 7, 7, 2, 2, 2, 2, 10, 10, 10, 10, 10]
+    it = complex_wave_cascading(iter(amplitudes))
+    for amplitude in amplitudes:
+        output = next(it)
+        transmit(output)
+
+run_cascading()
+```
+    >>>
+    Output:  0.0
+    Output:  6.1
+    Output: -6.1
+    Output:  0.0
+    Output:  2.0
+    Output:  0.0
+    Output: -2.0
+    Output:  0.0
+    Output:  9.5
+    Output:  5.9
+    Output: -5.9
+    Output: -9.5
+The best part of this approach is that input can came from anywhere and can be completely dynamic. The only downside is that it assumes that input generator is thread safe, which may not be the case. If you need cross thread boundaries, `async` functions may be a better fit.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
