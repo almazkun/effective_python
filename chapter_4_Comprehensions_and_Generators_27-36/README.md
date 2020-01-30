@@ -843,5 +843,146 @@ run_cascading()
     Output: -9.5
 The best part of this approach is that input can came from anywhere and can be completely dynamic. The only downside is that it assumes that input generator is thread safe, which may not be the case. If you need cross thread boundaries, `async` functions may be a better fit.
 
+## Item 34: Avoid Causing State Transition in Generators With `throw`
+In addition to the `yield from` and `send` advanced generators feature, there is a `throw` method used to re-raise `Exception` instances within generator functions. The way `throw` works is simple: When method is called, the next occurrence of a `yield` expression re-raised the provided `Exception` instances after its output is received instead of continuing normally. Simple example implemented here:
+```python
+class MyError(Exception):
+    pass
+
+
+def my_generator():
+    yield 1
+    yield 2
+    yield 3
+
+
+it = my_generator()
+print(next(it))
+print(next(it))
+print(it.throw(MyError("test error")))
+```
+    >>>
+    1
+    2
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 3, in my_generator
+    __main__.MyError: test error
+When you call `throw`, the generator function may catch the injected exception with standard `try/except` compound statement that surrounds the last `yield` expression that was executed:
+```python
+def my_generator():
+    yield 1
+    try:
+        yield 2
+    except MyError:
+        print("Got MyError!")
+    else:
+        yield 3
+    yield 4
+
+it = my_generator()
+print(next(it))
+print(next(it))
+print(it.throw(MyError("test error")))
+```
+    >>>
+    1
+    2
+    Got MyError!
+    4
+This functionality provides a two-way communication chanel between a generator and its caller That can be useful in certain situations. For example, we need a timer that supprts a sporadic resets. Here is a generator that relies on the `throw` method:
+```python
+class Reset(Exception):
+    pass
+
+
+def timer(period):
+    current = period
+    while current:
+        current -= 1
+        try:
+            yield current
+        except Reset:
+            current = period
+```
+In this code, whenever the `Reset` is raised by the yield expression, the counter resets itself to the initial position.
+
+We can connect this counter reset to an external input that's pulled every second. Then We can define `run` function to drive the `timer` generator, which injects exception with `throw` to cause reset, or calls `announce` for each generator output:
+```python
+RESET = [
+    False, False, False, True, False, True, False,
+    False, False, False, False, False, False, False]
+
+def check_for_reset():
+    # Poll for external event
+    return RESET.pop(0)
+
+def announce(remaining):
+    print(f"{remaining} ticks remaining")
+
+def run():
+    it = timer(50)
+    while True:
+        try:
+            if check_for_reset():
+                current = it.throw(Reset())
+            else:
+                current = next(it)
+        except StopIteration:
+            break
+        else:
+            announce(current)
+
+run()
+```
+    >>>
+    3 ticks remaining
+    2 ticks remaining
+    1 ticks remaining
+    3 ticks remaining
+    2 ticks remaining
+    3 ticks remaining
+    2 ticks remaining
+    1 ticks remaining
+    0 ticks remaining
+This code works, but it is much harder to read than it should be.
+
+The simpler approach is to define a stateful closure using an iterable container object. Here is this approach:
+```python
+class Timer:
+    def __init__(self, period):
+        self.current = period
+        self.period = period
+    def reset(self):
+        self.current = self.period
+    def __iter__(self):
+        while self.current:
+            self.current -= 1
+            yield self.current
+```
+Now, the `run` function can be rewritten using `for` loop:
+```python
+def run():
+    timer = Timer(4)
+    for current in timer:
+        if check_for_reset():
+            timer.reset()
+        announce(current)
+
+run()
+```
+    >>>
+    3 ticks remaining
+    2 ticks remaining
+    1 ticks remaining
+    0 ticks remaining
+    3 ticks remaining
+    2 ticks remaining
+    3 ticks remaining
+    2 ticks remaining
+    1 ticks remaining
+    0 ticks remaining
+The output matches the previous version using `throw`, but this implementation is much easier to understand. Often, if you need to mix generators and exceptions, you should better use asynchronous features. So, don't use `throw`. 
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
