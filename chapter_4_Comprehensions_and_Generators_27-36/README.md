@@ -984,5 +984,85 @@ run()
     0 ticks remaining
 The output matches the previous version using `throw`, but this implementation is much easier to understand. Often, if you need to mix generators and exceptions, you should better use asynchronous features. So, don't use `throw`. 
 
+## Item 36: Consider `itertools` for Working with Iterators and Generators
+The `itertools` buit-in module contains a large numbers of functions that a re useful for organizing and interacting with iterators. 
+```python
+import itertools
+```
+Whenever you find yourself dealing with tricky iteration code, consider looking onto the `itertools` module again, there might be something interesting for you. 
+
+Here are functions grouped in three most interesting categories:
+### 1. Linking iterators together:
+* ***chain***
+Use `chain` to combine several iterators into a single iterator:
+```python
+it = itertools.chain([1, 2, 3], [4, 5, 6])
+print(list(it))
+```
+    >>>
+    [1, 2, 3, 4, 5, 6]
+* ***repeat***
+Use `repeat` to output a value forever, or with second parameter to specify for how many times:
+```python
+it = itertools.repeat("hello", 3)
+print(list(it))
+```
+    >>>
+    ['hello', 'hello', 'hello']
+* ***cycle***
+Use `cycle` to repeat the iterator forever:
+```python
+it = itertools.cycle([1, 2])
+result = [next(it) for _ in range(10)]
+print(result)
+```
+    >>>
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
+* ***tee***
+Use `tee` to divide one iterator into multiple parallel iterators. Number of the parallel iterators specified in second parameter. Memory usage will grow if iterators don't progress at the same speed. 
+```python
+it1, it2, it3 = itertools.tee(["first", "second"], 3)
+print(list(it1))
+print(list(it2))
+print(list(it3))
+```
+    >>>
+    ['first', 'second']
+    ['first', 'second']
+    ['first', 'second']
+* ***zip_longest***
+This is variant of `zip` function. Returns a placeholder value when one of the iterators shorter. 
+```python
+keys = ["one", "two", "three"]
+values = [1, 2]
+
+normal = list(zip(keys, values))
+print("zip:", normal)
+
+it = itertools.zip_longest(keys, values, fillvalue="nope")
+longest = list(it)
+print("zip_longest:", longest)
+```
+    >>>
+    zip:         [('one', 1), ('two', 2)]
+    zip_longest: [('one', 1), ('two', 2), ('three', 'nope')]
+
+### 2. Filtering items from an Iterator
+* ***islice***
+Use `islice` to slice an iterator by numerical indexes without copying. It uses `end`, `start-end`, `start-end-step` syntax and the behavior is similar to usual slicing and striding.
+```python
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+first_five = itertools.islice(values, 5)
+print("First five:", list(first_five))
+
+middle_odds = itertools.islice(values, 2, 8, 2)
+print("Middle odds:", list(middle_odds))
+```
+    >>>
+    First five: [1, 2, 3, 4, 5]
+    Middle odds: [3, 5, 7]
+* ***takewhile***
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
