@@ -992,7 +992,7 @@ import itertools
 Whenever you find yourself dealing with tricky iteration code, consider looking onto the `itertools` module again, there might be something interesting for you. 
 
 Here are functions grouped in three most interesting categories:
-### 1. Linking iterators together:
+### 1: Linking iterators together:
 * ***chain***
 Use `chain` to combine several iterators into a single iterator:
 ```python
@@ -1047,7 +1047,7 @@ print("zip_longest:", longest)
     zip:         [('one', 1), ('two', 2)]
     zip_longest: [('one', 1), ('two', 2), ('three', 'nope')]
 
-### 2. Filtering items from an Iterator
+### 2: Filtering items from an Iterator
 * ***islice***
 Use `islice` to slice an iterator by numerical indexes without copying. It uses `end`, `start-end`, `start-end-step` syntax and the behavior is similar to usual slicing and striding.
 ```python
@@ -1063,6 +1063,95 @@ print("Middle odds:", list(middle_odds))
     First five: [1, 2, 3, 4, 5]
     Middle odds: [3, 5, 7]
 * ***takewhile***
+`takewhile` returns values from an iterator until predefined function returns `False`:
+```python
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+less_than_seven = lambda x: x < 7
+it = itertools.takewhile(less_than_seven, values)
+print(list(it))
+```
+    >>>
+    [1, 2, 3, 4, 5, 6]
+* ***dropwhile***
+`dropwhile` is the opposite of the `takewhile`. It starts to return values only after predefined function returns `True`:
+```python
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+less_than_seven = lambda x: x < 7
+it = itertools.dropwhile(less_than_seven, values)
+print(list(it))
+```
+    >>>
+    [7, 8, 9, 10]
+* ***filterfalse***
+`filterfalse`, which is the opposite of the `filter` built-in function, returns all values from iterator which values are `False` in predicated function:
+```python
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+evens = lambda x: x % 2 == 0
 
+filter_results = filter(evens, values)
+print("Filter:      ", list(filter_results))
+
+filter_false_results = itertools.filterfalse(evens, values)
+print("Filter false:", list(filter_false_results))
+```
+    >>>
+    Filter:       [2, 4, 6, 8, 10]
+    Filter false: [1, 3, 5, 7, 9]
+### 3:Producing Combination of Items from Iterators
+* ***accumulate***
+`accumulate` folds an item from the iterator into a running value by applying a function that takes two parameters. It outputs current accumulated result for each input value:
+```python
+values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+sum_reduce = itertools.accumulate(values)
+print("Sum:   ", list(sum_reduce))
+
+def sum_modulo_20(first, second):
+    output = first + second
+    return output % 20
+
+modulo_reduce = itertools.accumulate(values, sum_modulo_20)
+print("Modulo:", list(modulo_reduce))
+```
+    >>>
+    Sum:    [1, 3, 6, 10, 15, 21, 28, 36, 45, 55]
+    Modulo: [1, 3, 6, 10, 15, 1, 8, 16, 5, 15]
+If second parameter to `accumulate` is not given it will return accumulated sum of the input. It is same as `reduce` built-in function from the `functools`, but with outputs yielded 
+one step at the time.
+* ***product***
+`product` returns Cartesian product of items from one or more iterators:
+```python
+single = itertools.product([1, 2], repeat=2)
+print("Single:  ", list(single))
+
+multiple = itertools.product([1, 2], ["a", "b"])
+print("Multiple:", list(multiple))
+```
+    >>>
+    Single:   [(1, 1), (1, 2), (2, 1), (2, 2)]
+    Multiple: [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]
+* ***permutation***
+`permutation` returns the unique ordered permutations on length `N` with items from an iterator:
+```python
+it = itertools.permutations([1,2,3,4], 2)
+print(list(it))
+```
+    >>>
+    [(1, 2), (1, 3), (1, 4), (2, 1), (2, 3), (2, 4), (3, 1), (3, 2), (3, 4), (4, 1), (4, 2), (4, 3)]
+* ***combinations***
+`combinations` returns the unordered combinations of length `N` with unrepeated items from an iterator:
+```python
+it = itertools.combinations([1, 2, 3, 4], 2)
+print(list(it))
+```
+    >>>
+    [(1, 2), (1, 3), (1, 4), (2, 3), (2, 4), (3, 4)]
+* ***combinations_with_replacement***
+`combinations_with_replacement` is the same as a `combinations`, but repeated values are allowed:
+```python
+it = itertools.combinations_with_replacement([1, 2, 3, 4], 2)
+print(list(it))
+    >>>
+    [(1, 1), (1, 2), (1, 3), (1, 4), (2, 2), (2, 3), (2, 4), (3, 3), (3, 4), (4, 4)]
+    
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
