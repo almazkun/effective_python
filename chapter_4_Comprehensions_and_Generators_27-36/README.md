@@ -890,7 +890,7 @@ print(it.throw(MyError("test error")))
     2
     Got MyError!
     4
-This functionality provides a two-way communication chanel between a generator and its caller That can be useful in certain situations. For example, we need a timer that supprts a sporadic resets. Here is a generator that relies on the `throw` method:
+This functionality provides a two-way communication chanel between a generator and its caller That can be useful in certain situations. For example, we need a timer that supports a sporadic resets. Here is a generator that relies on the `throw` method:
 ```python
 class Reset(Exception):
     pass
@@ -985,7 +985,7 @@ run()
 The output matches the previous version using `throw`, but this implementation is much easier to understand. Often, if you need to mix generators and exceptions, you should better use asynchronous features. So, don't use `throw`. 
 
 ## Item 36: Consider `itertools` for Working with Iterators and Generators
-The `itertools` buit-in module contains a large numbers of functions that a re useful for organizing and interacting with iterators. 
+The `itertools` built-in module contains a large numbers of functions that a re useful for organizing and interacting with iterators. 
 ```python
 import itertools
 ```
@@ -1097,7 +1097,7 @@ print("Filter false:", list(filter_false_results))
     >>>
     Filter:       [2, 4, 6, 8, 10]
     Filter false: [1, 3, 5, 7, 9]
-### 3:Producing Combination of Items from Iterators
+### 3: Producing Combination of Items from Iterators
 * ***accumulate***
 `accumulate` folds an item from the iterator into a running value by applying a function that takes two parameters. It outputs current accumulated result for each input value:
 ```python
@@ -1150,8 +1150,10 @@ print(list(it))
 ```python
 it = itertools.combinations_with_replacement([1, 2, 3, 4], 2)
 print(list(it))
+```
     >>>
     [(1, 1), (1, 2), (1, 3), (1, 4), (2, 2), (2, 3), (2, 4), (3, 3), (3, 4), (4, 4)]
-    
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
