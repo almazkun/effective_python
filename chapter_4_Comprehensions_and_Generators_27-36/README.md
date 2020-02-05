@@ -799,7 +799,7 @@ This works, but there is a surprise: There are many `None` values. It happens be
 
 THis mean that even that these approaches work individually, will be broken when used together. Although, it's possible to modify `run_modulation` function to work around `None`, it does not worth a trouble. It is already complicated to understand how `send` works. The surprising effect of the `yield from` is even worse. We should avoid `send` method altogether and use simpler approach.
 
-The easiest solution is to pass and iterator into the `wave()` function. The iterator should return an input amplitude each time the `next` build-in function is called. This arrangement ensures that each generator is progressed in a cascade as input and outputs a processed:
+The easiest solution is to pass and iterator into the `wave()` function. The iterator should return an input amplitude each time the `next` built-in function is called. This arrangement ensures that each generator is progressed in a cascade as input and outputs a processed:
 ```python
 def wave_cascading(amplitude_it, steps):
     step_size = 2 * math.pi / steps

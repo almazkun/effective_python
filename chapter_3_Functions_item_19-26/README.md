@@ -756,7 +756,7 @@ pickle.dumps(fibonacci)
       File "<stdin>", line 1, in <module>
     AttributeError: Can't pickle local object 'trace.<locals>.wrapper'
 
-The solution is to use `wraps` decorator from `functools` build-in. This is decorator to write decorators. When you use it, it copies all the inner information of the function, and makes it available to the outer function:
+The solution is to use `wraps` decorator from `functools` built-in. This is decorator to write decorators. When you use it, it copies all the inner information of the function, and makes it available to the outer function:
 ```python
 from functools import wraps
 
