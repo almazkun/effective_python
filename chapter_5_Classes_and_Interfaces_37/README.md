@@ -194,8 +194,46 @@ print(albert.average_grade())
 ```
     >>>
     80.25
-    
 
+## Item 38: Accept Functions Instead of Classes for Simple Interfaces
+Many Python's built-in can accept function as a parameter's value. Like in `list`'s `sort` method:
+```python
+names = ['Socrates', 'Archimedes', 'Plato', 'Aristotle']
+names.sort(key=len)
+print(names)
+```
+    >>>
+    ['Plato', 'Socrates', 'Aristotle', 'Archimedes']
+
+This is possible because functions in Python are `first class` objects: they can be passed around and reference like any other value.
+
+For example, we want to customize the behavior of the `defaultdict` class. Now it will print out a message each time missing key was called:
+```python 
+from collections import defaultdict
+
+def log_missing():
+    print("Key added")
+    return 0
+
+current = {"green": 12, "blue": 3}
+increment = [
+    ("red", 5),
+    ("blue", 17),
+    ("orange", 9),
+]
+result = defaultdict(log_missing, current)
+print(f"Before: {dict(result)}")
+
+for key, amount in increment:
+    result[key] += amount
+
+print(f"After: {dict(result)}")
+```
+    >>>
+    Before: {'green': 12, 'blue': 3}
+    Key added
+    Key added
+    After: {'green': 12, 'blue': 20, 'red': 5, 'orange': 9}
 
 
 
