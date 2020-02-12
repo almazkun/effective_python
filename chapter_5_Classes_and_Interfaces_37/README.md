@@ -216,7 +216,7 @@ def log_missing():
     return 0
 
 current = {"green": 12, "blue": 3}
-increment = [
+increments = [
     ("red", 5),
     ("blue", 17),
     ("orange", 9),
@@ -224,7 +224,7 @@ increment = [
 result = defaultdict(log_missing, current)
 print(f"Before: {dict(result)}")
 
-for key, amount in increment:
+for key, amount in increments:
     result[key] += amount
 
 print(f"After: {dict(result)}")
@@ -235,15 +235,59 @@ print(f"After: {dict(result)}")
     Key added
     After: {'green': 12, 'blue': 20, 'red': 5, 'orange': 9}
 
+Using such functions also makes tasting easier. For example, if we want to count missing values, we may achieve this by using closure:
+```python
+def increment_with_report(current, increments):
+    added_count = 0
+    def missing():
+        nonlocal added_count
+        added_count += 1
+        return 0
+    result = defaultdict(missing, current)
+    for key, amount in increments:
+        result[key] += amount
+    return result, added_count
 
+result, count = increment_with_report(current, increments)
+assert count == 2
+```
+This also can be done by storing state in class rather than in closure:
+```python
+class CountMissing:
+    def __init__(self):
+        self.added = 0
+    def missing(self):
+        self.added += 1
+        return 0
 
+counter = CountMissing()
+result = defaultdict(counter.missing, current) # Method ref
+for key, amount in increments:
+    result[key] += amount
 
+assert counter.added == 2
+```
+It works well, but it is not clear for new reader what is the purpose of this helper class. 
 
+To clarify this situation Python has `__call__` method. This method allows an object to called like a regular function. All objects that can be executed in this manner are called *callables*:
+```python
+class BetterCountMissing:
+    def __init__(self):
+        self.added = 0
+    def __call__(self):
+        self.added += 1
+        return 0
 
+counter = BetterCountMissing()
+assert counter() == 0
+assert callable(counter)
 
+result = defaultdict(counter, current) # Relies on __call__
+for key, amount in increments:
+    result[key] += amount
 
-
-
+assert counter.added == 2
+```
 
 
 # 
