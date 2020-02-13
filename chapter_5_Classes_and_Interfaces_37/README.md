@@ -289,6 +289,182 @@ for key, amount in increments:
 assert counter.added == 2
 ```
 
+## Item 39: Use `@classmethod` Polymorphism to Construct Objects Generically
+
+In Python, not only objects support polymorphism, but classes do as well. 
+
+Polymorphism enables hierarchy of classes to implement their own unique versions of a method. THis mean that many classes can fulfill the same interface of abstract base class while providing different functionality.
+
+For example, let's implement MapReduce functionality with a common class to represent a input date. Here is a such class with `read` method, which needs to be implemented by subclass:
+```python
+class InputData:
+    def read(self):
+        raise NotImplementedError
+```
+Here is a subclass of `InputData` which reads data from a file on disk:
+```python
+class PathInputData(InputData):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+    def read(self):
+        with open(self.path) as f:
+            return f.read()
+```
+It is possible to have any number of subclasses, with each of them implementing their own version of `read` method.
+
+Now, we want a MapReduce worker that consumes the input data in a standard way:
+```python
+class Worker:
+    def __init__(self, input_data):
+        self.input_data = input_data
+        self.result = None
+    def map(self):
+        raise NotImplementedError
+    def reduce(self, other):
+        raise NotImplementedError
+```
+After that, we define a subclass of `Worker` to implement a specific MapReduce function - a simple new line counter:
+```python
+class LineCountWorker(Worker):
+    def map(self):
+        data = self.input_data.read()
+        self.result = data.count("\n")
+    def reduce(self, other):
+        self.result += other.result
+```
+It looks like th implementation is doing great. But we have come upon the biggest hurdle of all. What connects all of these peaces together?
+
+The simplest approach is to manually build and connect the objects with some helper functions. Let's start with listing all files in directory and constructing a `PathInputData` instance for each file:
+```python
+import os
+
+
+def generate_inputs(data_dir):
+    for name in os.listdir(data_dir):
+        yield PathInputData(os.path.join(data_dir, name))
+```
+Now, we need to create `LineCountWorker` instance by using `InputData` instance:
+```python
+def create_workers(input_list):
+    workers = []
+    for input_data in input_list:
+        workers.append(LineCountWorker(input_data))
+    return workers
+```
+We execute `Worker` instance by fanning out the `map` step in multiple threads. Then call `reduce` repeatedly to combine the results into one final value:
+```python
+from threading import Thread
+
+
+def execute(workers):
+    threads = [Thread(target=w.map) for w in workers]
+    for thread in threads: thread.start()
+    for thread in threads: thread.join()
+    first, *rest = workers
+    for worker in rest:
+        first.reduce(worker)
+    return first.result
+```
+Finally, we connect of the peaces in a function to run each step:
+```python
+def mapreduce(data_dir):
+    inputs = generate_inputs(data_dir)
+    workers = create_workers(inputs)
+    return execute(workers)
+```
+Let' test how it works:
+```python
+import os
+import random
+
+
+def write_test_files(tmpdir):
+    os.makedirs(tmpdir)
+    for i in range(100):
+        with open(os.path.join(tmpdir, str(i)), "w") as f:
+            f.write("\n" * random.randint(0,100))
+
+tmpdir = "test_inputs"
+write_test_files(tmpdir)
+
+result = mapreduce(tmpdir)
+print(f"There are {result} lines")
+```
+    >>>
+    There are 4600 lines
+It works! But there is a huge problem, that is `mapreduce` function is not generic at all. If we would need to write another `InputData` or `Worker` we would need to rewrite `generate_inputs`, `create_workers` and `mapreduce` functions!
+
+This problem boils down to the need of a generic way to construct an object. The best way to solve this problem is to use `class method` polymorphism. 
+
+Let's apply this idea to the MapReduce classes. We will extend `InputData` class with a generic `@classmethod` to create new `InputData`:
+```python
+class GenericInputData:
+    def read(self):
+        raise NotImplementedError
+    @classmethod
+    def generate_inputs(cls, config):
+        raise NotImplementedError
+```
+We put a set of configuration parameters that the `GenericInputData` subclass need to interpret:
+```python
+class PathInputData(GenericInputData):
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+    def read(self):
+        with open(self.path) as f:
+            return f.read()
+    @classmethod
+    def generate_inputs(cls, config):
+        data_dir = config["data_dir"]
+        for name in os.listdir(data_dir):
+            yield cls(os.path.join(data_dir, name))
+```
+Similarly, we can make `create_worker` helper part of the `GenericWorker` class. Here we use `input_class` parameter, which should be a subclass of the `GenericInputData`:
+```python
+class GenericWorker:
+    def __init__(self, input_data):
+        self.input_data = input_data
+        self.result = None
+    def map(self):
+        raise NotImplementedError
+    def reduce(self, other):
+        raise NotImplementedError
+    @classmethod
+    def create_worker(cls, input_class, config):
+        workers = []
+        for input_data in input_class.generate_inputs(config):
+            workers.append(cls(input_data))
+        return workers
+```
+Note that the call to `input_class.generate_inputs` in the class polymorphism that we are truing to achieve. Here `create_worker` calling `cls()` is a alternative way to construct `GenericWorkers` object.
+The effect of my concrete `GenericWorker` subclass is nothing more than changing its parent class:
+```python
+class LineCountWorker(GenericWorker):
+    def map(self):
+        data = self.input_data.read()
+        self.result = data.count("\n")
+    def reduce(self, other):
+        self.result += other.result
+```
+Rewriting the `mapreduce` function to the completely generic form:
+```python
+def mapreduce(worker_class, input_class, config):
+    workers = worker_class.create_worker(input_class, config)
+    return execute(workers)
+```
+Running the new worker produces the same result:
+```python
+config = {"data_dir": tmpdir}
+result = mapreduce(LineCountWorker, PathInputData, config)
+print(f"There are {result} lines")
+```
+    >>>
+    There are 4600 lines
+We can write other `GenericInputData` and `GenericWorker` subclass, without rewriting any glue code.
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
