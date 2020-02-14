@@ -464,6 +464,166 @@ print(f"There are {result} lines")
     There are 4600 lines
 We can write other `GenericInputData` and `GenericWorker` subclass, without rewriting any glue code.
 
+## Item 40: Initialize Parent classes with `super`
+The old to initialize parent class from a child class is to call parent's `__init__` method in child instance:
+```python
+class MyBaseClass:
+    def __init__(self, value):
+        self.value = value
+
+
+class MyChildClass(MyBaseClass):
+    def __init__(self):
+        MyBaseClass.__init__(self, 5)
+```
+This approach works in simple cases but brakes in cases with complicated inheritance. 
+
+If class is affected with multiple inheritance calling the superclasses' `__init__` method directly can lead to unexpected behavior:
+
+One problem is that the `__init__` call order isn't specific across all subclasses. For example, here is two classes with `value` field:
+```python
+class TimesTwo:
+    def __init__(self):
+        self.value *= 2
+
+
+class PlusFive:
+    def __init__(self):
+        self.value += 5
+```
+This class define its parents ordering in one way:
+```python
+class OneWay(MyBaseClass, TimesTwo, PlusFive):
+    def __init__(self, value):
+        MyBaseClass.__init__(self, value)
+        TimesTwo.__init__(self)
+        PlusFive.__init__(self)
+```
+And constructing it produces a result that matches the parent class ordering:
+```python
+foo = OneWay(5)
+print(f"First ordering value is (5 * 2) + 5 = {foo.value}")
+```
+    >>>
+    First ordering value is (5 * 2) + 5 = 15
+
+Here is another class ordering it parents differently(`PlusFive`- first, `TimesTwo` - second):
+```python
+class AnotherWay(MyBaseClass, PlusFive, TimesTwo):
+    def __init__(self, value):
+        MyBaseClass.__init__(self, value)
+        TimesTwo.__init__(self)
+        PlusFive.__init__(self)
+```
+However, we lest the calls to the parent class constructor - `PlusFive.__init__` and `TimesTwo.__init__` - in the same order as before, which mean this class behavior doesn't match the order of the parent classes in its definition. THis types of conflict is hard to spot and it is especially difficult for new readers to understand:
+```python
+bar = AnotherWay(5)
+print(f"Second ordering value is {bar.value}")
+```
+    >>>
+    Second ordering value is 15
+
+Another problem occurs with `Diamond inheritance`. Diamond inheritance happens when a subclass inherits from two separate classes that have the same superclass somewhere in the hierarchy. Diamond inheritance cause the common superclass's `__init__` method to run multiple times, causing unexpected behavior:
+```python
+class TimesSeven(MyBaseClass):
+    def __init__(self, value):
+        MyBaseClass.__init__(self, value)
+        self.value *= 7
+
+
+class PlusNine(MyBaseClass):
+    def __init__(self, value):
+        MyBaseClass.__init__(self, value)
+        self.value += 9
+```
+Then we define a child class which inherits from both of these classes, making `MyBaseClass` the top of the diamond:
+```python
+class ThisWay(TimesSeven, PlusNine):
+    def __init__(self, value):
+        TimesSeven.__init__(self, value)
+        PlusNine.__init__(self, value)
+
+foo = ThisWay(5)
+print(f"Should be (5 * 7) + 9 = 44 but is {foo.value}.")
+```
+    >>>
+    Should be (5 * 7) + 9 = 44 but is 14.
+
+The call to the second patent class's constructor, `PlusNine.__init__`, causes `self.value` to be reset to `5` again when `MyBaseClass.__init__` get called a second time. The result of a calculation is completely ignoring `TimesSeven.__init__` constructor. This behavior is surprising and very hard to debug in more complex cases.
+
+Python have the `super` built-in function and standard method resolution order (MRO). `super` ensures that the common superclasses in diamond hierarchies are run only once. MRO ordering follows `C3 lineariztion` algorithm.
+
+Let's try to use this `super` function:
+```python
+class TimesSevenCorrect(MyBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
+        self.value *= 7
+
+
+class PlusNineCorrect(MyBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
+        self.value += 9
+```
+Now `super` ensures that `MyBaseClass.__init__` is run only once and the order in which parent classes are run is defined in `class` statement:
+```python
+class GoodWay(TimesSevenCorrect, PlusNineCorrect):
+    def __init__(self, value):
+        super().__init__(value)
+
+
+foo = GoodWay(5)
+print(f"Should be 7 * (5 + 9) = 98 but is {foo.value}")
+```
+    >>>
+    Should be 7 * (5 + 9) = 98 but is 98
+
+THis seems backwards at first. Let's see what is happening. You can check the order by calling `mro`:
+```python
+mro_str = "\n".join(repr(cls) for cls in GoodWay.mro())
+print(mro_str)
+```
+    >>>
+    <class '__main__.GoodWay'>
+    <class '__main__.TimesSevenCorrect'>
+    <class '__main__.PlusNineCorrect'>
+    <class '__main__.MyBaseClass'>
+    <class 'object'>
+
+So, we we call `GoodWay(5)`, it calls `TimesSevenCorrect.__init__`, which calls `PlusNineCorrect.__init__`. which calls `MyBaseClass.__init__`. After reaching the top of the Diamond, all of the initialization methods actually do their job in opposite order. `MyBaseClass.__init__` assigns `5` to `value`. `PlusNineCorrect.__init__` adds `9` to make value total `14`. `TimesSeven.__init__` multiplies by `7` to make it `98`.
+
+Besides, making multiple inheritance robust, the call `super().__init__` is also much more maintainable. Later we can rename the `MyBaseClass` or have `TimesSevenCorrect` and `PlusNineCorrect` inherit from different superclass without having to update their `__init__` methods to match.
+
+`super` also can be called with two parameters:
+1. The type os class whose MRO parent view you're trying to access;
+2. The instance on which to access that view.
+
+Using this two optional parameters in the constructor looks like this:
+```python
+class ExplicitTrisect(MyBaseClass):
+    def __init__(self, value):
+        super(ExplicitTrisect, self).__init__(value)
+        self.value /= 3
+```
+However, this parameters are not required for `object` instance initialization.
+```python
+class AutomaticTrisect(MyBaseClass):
+    def __init__(self, value):
+        super(__class__, self).__init__(value)
+        self.value /= 3
+
+
+class ImplicitTrisect(MyBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
+        self.value /= 3
+
+
+assert ExplicitTrisect(9).value == 3
+assert AutomaticTrisect(9).value == 3
+assert ImplicitTrisect(9).value == 3
+```
 
 
 # 
