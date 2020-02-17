@@ -625,6 +625,49 @@ assert AutomaticTrisect(9).value == 3
 assert ImplicitTrisect(9).value == 3
 ```
 
+## Item 41: Consider Composing Functionality with Mix-in classes
+It is better to avoid multiple inheritance.
+
+Consider writing mix-ins instead of multiple inheritance.
+
+*Mix-in is a class that defines only a small set of additional methods for its child classes to provide. Mix-in classes don't define their own instance attributes not require their `__init__` constructor to be called.*
+
+Mix-ins are easy to write and they can be composed and layered to minimize repetitive code and maximize reuse. 
+
+For example, we want to have a functionality to convert in-memory Python object to serializable dict representation. Here is a mix-in to accomplish that:
+```python
+class ToDictMixin:
+    def to_dict(self):
+        return self._traverse_dict(self.__dict__)
+    def _traverse_dict(self, instance_dict):
+        output = {}
+        for key, value in instance_dict.items():
+            output[key] = self._traverse(key, value)
+        return output
+    def _traverse(self, key, value):
+        if isinstance(value, ToDictMixin):
+            return value.to_dict()
+        elif isinstance(value, dict):
+            return self._traverse_dict(value)
+        elif isinstance(value, list):
+            return [self._traverse(key, i) for i in value]
+        elif hasattr(value, "__dict__"):
+            return self._traverse_dict(value.__dict__)
+        else:
+            return value
+```
+Here, is a class which make a dictionary representation of a binary tree using our mix-in:
+```python
+class BinaryTree(ToDictMixin):
+    def __init__(self, value, left=None, right=None):
+        self.value = value
+        self.left = left
+        self.right = right
+
+
+tree = BinaryTree(10, left=BinaryTree(7, right=BinaryTree(9)),
+                    right=BinaryTree(13, left=BinaryTree(11)))
+print(tree.to_dict())exit()
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
