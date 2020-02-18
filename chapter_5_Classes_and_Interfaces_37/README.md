@@ -668,6 +668,66 @@ class BinaryTree(ToDictMixin):
 tree = BinaryTree(10, left=BinaryTree(7, right=BinaryTree(9)),
                     right=BinaryTree(13, left=BinaryTree(11)))
 print(tree.to_dict())exit()
+```
+    >>>
+    {'value': 10, 
+    'left': {'value': 7,
+            'left': None,
+            'right': 
+                    {'value': 9, 
+                    'left': None, 
+                    'right': None}}, 
+    'right': 
+            {'value': 13, 
+            'left': 
+                {'value': 11, 
+                'left': None, 
+                'right': None}, 
+            'right': None}}
+
+Behavior of mix-in can be easily overridden when required. For example, here is a subclass of `BinaryTree` that holds a reference to the parent. This circular reference would cause the default implementation of `ToDictMixin.to_dict` to loop forever:
+```python
+class BinaryTreeWithParent(BinaryTree):
+    def __init__(self, value, left=None, right=None, parent=None):
+        super().__init__(value, left=left, right=right)
+        self.parent = parent
+    def _traverse(self, key, value):
+        if isinstance(value, BinaryTreeWithParent) and key == "parent":
+            return value.value # Prevent cycling
+        else:
+            return super()._traverse(key, value)
+```
+We have overridden `_traverse` method, which now is inserting the parent's numerical value and otherwise defers to the mix-ins default implementation by calling `super` built-in.
+
+Calling `BinaryTreeWithParent.to_dict` works fine now:
+```python
+root = BinaryTreeWithParent(10)
+root.left = BinaryTreeWithParent(7, parent=root)
+root.left.right = BinaryTreeWithParent(9, parent=root.left)
+print(root.to_dict())
+```
+    >>>
+    {'value': 10, 
+    'left': 
+        {'value': 7, 
+        'left': None, 
+        'right': {'value': 9, 
+                'left': None, 
+                'right': None, 
+                'parent': 7}, 
+        'parent': 10}, 
+    'right': None, 
+    'parent': None
+
+By defining `BinaryTreeWithParent._traverse`, also enabled any class that has an attribute `BinaryTreeWithParent` to automatically work with the `ToDoMixin`:
+```python
+class NamedSubTree(ToDoMixin):
+    def __init__(self, name, tree_with_parent):
+        self.name = name
+        self.tree_with_name = tree_with_name
+    def
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
