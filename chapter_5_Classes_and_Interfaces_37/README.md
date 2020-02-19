@@ -667,7 +667,7 @@ class BinaryTree(ToDictMixin):
 
 tree = BinaryTree(10, left=BinaryTree(7, right=BinaryTree(9)),
                     right=BinaryTree(13, left=BinaryTree(11)))
-print(tree.to_dict())exit()
+print(tree.to_dict())
 ```
     >>>
     {'value': 10, 
@@ -721,11 +721,70 @@ print(root.to_dict())
 
 By defining `BinaryTreeWithParent._traverse`, also enabled any class that has an attribute `BinaryTreeWithParent` to automatically work with the `ToDoMixin`:
 ```python
-class NamedSubTree(ToDoMixin):
+class NamedSubTree(ToDictMixin):
     def __init__(self, name, tree_with_parent):
         self.name = name
-        self.tree_with_name = tree_with_name
-    def
+        self.tree_with_parent = tree_with_parent
+
+
+my_tree = NamedSubTree("foobar", root.left.right)
+print(my_tree.to_dict())
+```
+    >>>
+    {'name': 'foobar', 
+    'tree_with_parent': {'value': 9, 
+                        'left': None, 
+                        'right': None, 
+                        'parent': 7}}
+
+Mix-ins can also be composed together. For example, we need a mix-in that provides JSON serialization for any class:
+```python
+import json
+
+
+class JsonMixin:
+    @classmethod
+    def from_json(cls, data):
+        kwargs = json.loads(data)
+        return cls(**kwargs)
+    def to_json(self):
+        return json.dumps(self.to_dict())
+```
+Note how the `JsonMixin` defines both instance and class methods. And here is how it could be used:
+```python
+class DatacenterRack(ToDictMixin, JsonMixin):
+    def __init__(self, switch=None, machines=None):
+        self.switch = Switch(**switch)
+        self.machines = [
+            Machine(**kwargs) for kwargs in machines]
+
+
+class Switch(ToDictMixin, JsonMixin):
+    def __init__(self, ports=None, speed=None):
+        self.ports = ports
+        self.speed = speed
+
+
+class Machine(ToDictMixin, JsonMixin):
+    def __init__(self, cores=None, ram=None, disk=None):
+        self.cores = cores
+        self.ram = ram
+        self.disk = disk
+
+
+serialized = """{
+"switch": {"ports": 5, "speed": 1e9},
+"machines": [
+{"cores": 8, "ram": 32e9, "disk": 5e12},
+{"cores": 4, "ram": 16e9, "disk": 1e12},
+{"cores": 2, "ram": 4e9, "disk": 500e9}
+]
+}"""
+
+deserialized = DatacenterRack.from_json(serialized)
+roundtrip = deserialized.to_json()
+assert json.loads(serialized) == json.loads(roundtrip)
+```
 
 
 
