@@ -786,7 +786,167 @@ roundtrip = deserialized.to_json()
 assert json.loads(serialized) == json.loads(roundtrip)
 ```
 
+## Item 42: Prefer Public Attributes over Private ones
+In Python there are only *public* or *private* class attributes:
+```python
+class MyObject:
+    def __init__(self):
+        self.public_field = 5
+        self.__private_field = 10
+    def get_private_field(self):
+        return self.__private_field
+```
+Public attributes can be accessed directly:
+```python
+foo = MyObject()
+assert foo.public_field == 5
+```
+Private attributes are with names started with double underscores `__` and can be accessed through class's methods:
+```python
+assert foo.get_private_field() == 10
+```
+But cannot be accessed directly:
+```python
+foo.__private_field
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    AttributeError: 'MyObject' object has no attribute '__private_field'
+Class methods also have access to the private attributes of the same class:
+```python
+class MyOtherObject:
+    def __init__(self):
+        self.__private_field = 71 
+    @classmethod
+    def get_private_field_of_instance(cls, instance):
+        return instance.__private_field
 
+bar = MyOtherObject()
+assert MyOtherObject.get_private_field_of_instance(bar) == 71
+```
+Subclasses cannot access parent's private fields:
+```python
+class MyParentObject:
+    def __init__(self):
+        self.__private_field = 71
+
+class MyChildObject(MyParentObject):
+    def get_private_field(self):
+        return self.__private_field
+
+baz = MyChildObject()
+baz.get_private_field()
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 3, in get_private_field
+    AttributeError: 'MyChildObject' object has no attribute '_MyChildObject__private_field'
+
+However, the private attributes are implemented by simply transforming a attribute name. Because the field is defined in `MyParentObject.__init__` it is named `MyParentObject.__private_field`. THis is why subclass method cannot access it, Python is looking for `MyChildObject.__private_field`. 
+
+So, knowing that, it is possible to access private attributes of any class from outside easily:
+```python
+assert baz._MyParentObject__private_field == 71
+```
+We can look it up the following way:
+```python
+print(baz.__dict__)
+```
+    >>>
+    {'_MyParentObject__private_field': 71}
+
+That being said, it is better not to use private attributes when you want them to be hidden from outer world:
+```python
+class MyStringClass:
+    def __init__(self, value):
+        self.__value = value
+    def get_value(self):
+        return str(self.__value)
+
+foo = MyStringClass(5)
+assert foo.get_value() == "5"
+```
+This is wrong approach, one of the down sides is that if latter you decide to extend or subclass this class, it will make it more prone to errors and bags and just harder to write.
+```python
+class MyIntegerSubclass(MyStringClass):
+    def get_value(self):
+        return int(self._MyStringClass__value)
+
+foo = MyIntegerSubclass("5")
+assert foo.get_value() == 5
+```
+In this case, if the class hierarchy changes, this classes will break:
+```python
+class MyBaseClass:
+    def __init__(self, value):
+        self.__value = value
+    def get_value(self):
+        return self.__value
+
+class MyStringClass(MyBaseClass):
+    def get_value(self):
+        return str(super().get_value()) # Updated
+
+class MyIntegerSubclass(MyStringClass):
+    def get_value(self):
+        return int(self._MyStringClass__value) # Not updated
+
+
+foo = MyIntegerSubclass("5")
+foo.get_value
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 3, in get_value
+    AttributeError: 'MyIntegerSubclass' object has no attribute '_MyStringClass__value'
+
+In general, it is better to document each protected field and explain why:
+```python
+class MyStringClass:
+    def __init__(self):
+        # This stores the user-supplied value for the object.
+        # It should be coercible to a string. Once assigned in
+        # the object it should be treated as immutable.
+        self.value = value
+...
+```
+The only time when you should seriously consider private attributes is when your worried about naming conflicts with subclasses. It happens when of the child's attribute is the same:
+```python
+class ApiClass:
+    def __init__(self):
+        self._value = 5
+    def get(self):
+        return self._value
+
+class Child(ApiClass):
+    def __init__(self):
+        super().__init__()
+        self._value = "hello"
+
+a = Child()
+print(f"{a.get()} and {a._value} should be different")
+```
+    >>>
+    hello and hello should be different
+
+This kind of problem are especially common in public APIs with common names (like `value`). In this situations you should use private attributes:
+```python
+class ApiClass:
+    def __init__(self):
+        self.__value = 5        # Double underscore
+    def get(self):
+        return self.__value     # Double underscore
+
+class Child(ApiClass):
+    def __init__(self):
+        super().__init__()
+        self._value = "hello"   # OK!
+
+a = Child()
+print(f"{a.get()} and {a._value} should be different")
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
