@@ -947,6 +947,167 @@ class Child(ApiClass):
 
 a = Child()
 print(f"{a.get()} and {a._value} should be different")
+```
+
+## Item 43: Inherit from `collections.abc` for Custom Container Types
+Much of the programming in Python is defining classes that in one way or another stores some data and describes its relations to other objects. Every Python class is a container of some kind, encapsulating attributes and functionality together. Python provides built-in container types: lists, tuples, sets and dictionaries. 
+
+* You can subclass a built-in `list` type with some additional methods for counting the frequency of its members:
+```python
+class FrequencyList(list):
+    def __init__(self, members):
+        super().__init__(members)
+    def frequency(self):
+        counts = {}
+        for item in self:
+            counts[item] = counts.get(item, 0) + 1
+        return counts
+```
+By subclassing `list` we get all the functionality and methods of it and have our own new method. 
+```python
+foo = FrequencyList(["a", "b", "a", "c", "b", "a", "d"])
+print(f"Length is {len(foo)}")
+
+foo.pop()
+print(f"After pop: {repr(foo)}")
+print(f"Frequency: {foo.frequency()}")
+```
+    >>>
+    Length is 7
+    After pop: ['a', 'b', 'a', 'c', 'b', 'a']
+    Frequency: {'a': 3, 'b': 2, 'c': 1}
+
+* Now imagine, we need an object like `list` that allows indexing but isn't `list` subclass. For example, in this binary tree:
+```python
+class BinaryNode:
+    def __init__(self, value, left=None, right=None):
+        self.value = value
+        self.left = left
+        self.right = right
+```
+How to make this class a sequence type? Python implement this type of behavior by calling `__getitem__`:
+```python
+bar = [1, 2, 3]
+bar[0]
+```
+This mean Python will call:
+```python
+bar.__getitem__(0)
+```
+To make our class a sequence we can define this method in a subclass:
+```python
+class IndexableNode(BinaryNode):
+    def _traverse(self):
+        if self.left is not None:
+            yield from self.left._traverse()
+        yield self
+        if self.right is not None:
+            yield from self.right._traverse()
+    def __getitem__(self, index):
+        for i, item in enumerate(self._traverse()):
+            if i == index:
+                return item.value
+        raise IndexError(f"Index {index} is out of range")
+
+tree = IndexableNode(10, 
+                    left=IndexableNode(
+                        5, 
+                        left=IndexableNode(2), 
+                        right=IndexableNode(
+                            6, 
+                            right=IndexableNode(7))),
+                    right=IndexableNode(
+                        15, left=IndexableNode(11)))
+
+print(f"LRR is {tree.left.right.right.value}")
+print(f"Index 0 is {tree[0]}")
+print(f"Index 1 is {tree[1]}")
+print(f"11 is in tree? {11 in tree}")
+print(f"17 is in tree? {17 in tree}")
+print(f"Tree is {list(tree)}")
+```
+    >>>
+    LRR is 7
+    Index 0 is 2
+    Index 1 is 5
+    11 is in tree? True
+    17 is in tree? False
+    Tree is [2, 5, 6, 7, 10, 11, 15]
+
+The problem is, `__getitem__` alone does not implement other methods of a `list` type. The `len()` method needs to be implemented as well:
+```python
+len(tree)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: object of type 'IndexableNode' has no len()
+
+Implementation on `__len__` method:
+```python
+class SequenceNode(IndexableNode):
+    def __len__(self):
+        for count, _ in enumerate(self._traverse(), 1):
+            pass
+        return count
+
+tree = SequenceNode(10, 
+                    left=SequenceNode(
+                        5, 
+                        left=SequenceNode(2), 
+                        right=SequenceNode(
+                            6, 
+                            right=SequenceNode(7))),
+                    right=SequenceNode(
+                        15, left=SequenceNode(11)))
+
+print(f"Tree length is {len(tree)}")
+```
+    >>>
+    Tree length is 7
+
+Unfortunately, it still isn;t enough for the class to have oll the perks of the `list` type, it missing things like `count` and `index`, and implementing them all is very difficult. 
+
+To solve this problem in Python, there is a `collections.abc` module defines a set of abstract base classes that provide you with all the typical methods for each container. Also, when you subclass them and forget to implement required methods a exception will be raised:
+```python
+from collections.abc import Sequence
+
+
+class BadType(Sequence):
+    pass
+
+foo = BadType()
+```
+    >>>
+    >>> foo = BadType()
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: Can't instantiate abstract class BadType with abstract methods __getitem__, __len__
+
+When you implement all the required methods, it will provide all the additional methods for free:
+```python
+class BetterNode(SequenceNode, Sequence):
+    pass
+
+tree = BetterNode(10, 
+                    left=BetterNode(
+                        5, 
+                        left=BetterNode(2), 
+                        right=BetterNode(
+                            6, 
+                            right=BetterNode(7))),
+                    right=BetterNode(
+                        15, left=BetterNode(11)))
+
+print(f"Index of 7 is {tree.index(7)}")
+print(f"Count of 10 is {tree.count(10)}")
+```
+    >>>
+    Index of 7 is 3
+    Count of 10 is 1
+
+Benefits of inheriting from `collections.abc` are even greater for types like `set` and `MutableMapping`.
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
