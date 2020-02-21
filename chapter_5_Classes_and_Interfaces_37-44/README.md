@@ -1108,6 +1108,5 @@ print(f"Count of 10 is {tree.count(10)}")
 
 Benefits of inheriting from `collections.abc` are even greater for types like `set` and `MutableMapping`.
 
-
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
