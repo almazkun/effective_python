@@ -7,7 +7,7 @@ Similarly mysterious and powerful are Python's built-in features for dynamically
 But, this features also come with pitfalls. Dynamic attributes enables you to override object and cause unexpected side effects. Metaclasses can create extremely bizarre behaviors that are unapproachable to newcomers. It is important to follow the `rule-of-least-surprize` and use this instrument to implement well-understood idioms. 
 
 ## Item 44: Use Plain Attributes instead of Setter and Getter Methods 
-Programmers coming to Python from another languages my use `getter` and `setter` methods in their classes:
+* Programmers coming to Python from another languages my use `getter` and `setter` methods in their classes:
 ```python
 class OldResistor:
     def __init__(self, ohms):
@@ -35,7 +35,7 @@ assert r0.get_ohms() == 6e3
 ```
 This method do help in defining interfaces for a class.
 
-In Python, however, you never need to implement explicit getter and setter. Instead you should always define class with simple public attributes:
+* In Python, however, you never need to implement explicit getter and setter. Instead you should always define class with simple public attributes:
 ```python
 class Resistor:
     def __init__(self, ohms):
@@ -50,7 +50,7 @@ This attributes makes operations like incrementing natural and clear:
 ```python
 r1.ohms += 5e3
 ```
-Later, if we need to add special behavior when an attribute is set, we can migrate to `@property` decorator and its corresponding `setter` attribute. Here, we implement new functionality to change `current` by assigning the `voltage` property:
+* Later, if we need to add special behavior when an attribute is set, we can migrate to `@property` decorator and its corresponding `setter` attribute. Here, we implement new functionality to change `current` by assigning the `voltage` property:
 ```python
 class VoltageResistance(Resistor):
     def __init__(self, ohms):
@@ -74,7 +74,7 @@ print(f"After: {v2.current:.2f} amps")
     >>>
     Before: 0.00 amps
     After: 0.01 amps
-Specifying `setter` in a `@property` also enables us to check the value passed to the attributes:
+* Specifying `setter` in a `@property` also enables us to check the value passed to the attributes:
 ```python
 class BoundedResistance(Resistor):
     def __init__(self, ohms):
@@ -107,7 +107,8 @@ BoundedResistance(-5)
       File "<stdin>", line 3, in __init__
       File "<stdin>", line 10, in ohms
     ValueError: ohms must be > 0; got -5
-We can even `@property` to make attributes from parent classes immutable:
+
+* We can even `@property` to make attributes from parent classes immutable:
 ```python
 class FixedResistance(Resistor):
     def __init__(self, ohms):
@@ -131,7 +132,8 @@ r4.ohms = 2e3
       File "<stdin>", line 1, in <module>
       File "<stdin>", line 10, in ohms
     AttributeError: Ohms is immutable
-When using `@property` method be sure not that behavior you are implementing is not surprising. Don't set other attributes in getter property method:
+
+* When using `@property` method be sure not that behavior you are implementing is not surprising. Don't set other attributes in getter property method:
 ```python
 class MysteriousResistance(Resistor):
     @property
