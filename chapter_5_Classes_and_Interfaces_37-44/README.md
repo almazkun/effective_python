@@ -1079,7 +1079,6 @@ class BadType(Sequence):
 foo = BadType()
 ```
     >>>
-    >>> foo = BadType()
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
     TypeError: Can't instantiate abstract class BadType with abstract methods __getitem__, __len__
