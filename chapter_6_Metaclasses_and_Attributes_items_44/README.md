@@ -159,6 +159,114 @@ Try not to use expensive and slow thing in @property methods.
 
 Remember that `property` methods can only be shared with subclasses, unrelated classes can't share the same implementation. In this case `descriptors` may be used.
 
+## Item 45: Consider @property Instead of Refactoring Attributes
+The built-in `@property` decorator makes it easy for simple accesses of an instance's attributes to act smarter. One advanced but common use of `@property` is transition of simple numerical attribute into an on-the-fly calculation. This is extremely helpful because it lets you migrate all existing usage of a class to have a new behavior without changing calls to that class.
+
+For example, we need to have a leaky bucket quota. Here the `Bucket` class show how much of the quota remains and the duration for which quota will be available:
+```python
+from datetime import datetime, timedelta
+
+
+class Bucket:
+    def __init__(self,period):
+        self.period_delta = timedelta(seconds=period)
+        self.reset_time = datetime.now()
+        self.quota = 0
+    def __repr__(self):
+        return f"Bucket (quota={self.quota})"
+```
+The leaky bucket algorithm works by ensuring that, whenever the bucket is filled, amount of quota is not carried over from one period to another:
+```python
+def fill(bucket, amount):
+    now = datetime.now()
+    if (now - bucket.reset_time) > bucket.period_delta:
+        bucket.quota = 0
+        bucket.reset_time = now
+    bucket.quota += amount
+```
+Each time a quota consumer want to do something, it must first ensure that it can deduct the amount of quota it needs to use:
+```python
+def deduct(bucket, amount):
+    now = datetime.now()
+    if (now - bucket.reset_time) > bucket.period_delta:
+        return False                # Bucket hasn't been filled this period.
+    if bucket.quota - amount < 0:
+        return False                # Bucket was filled, but not enough
+    bucket.quota -= amount 
+    return True                     # Bucket has enough, quota consumed
+```
+To use this class, first fill the bucket:
+```python
+bucket = Bucket(60)
+fill(bucket, 100)
+print(bucket)
+```
+    >>>
+    Bucket (quota=100)
+Then I deduct quota that:
+```python
+if deduct(bucket, 99):
+    print("Had 99 quota")
+else:
+    print("Not enough for 99 quota")
+
+print(bucket)
+```
+    >>>
+    Had 99 quota
+    Bucket (quota=1)
+Eventually, it will prevent to use quotas:
+```python
+if deduct(bucket, 3):
+    print("Had 3 quota")
+else:
+    print("Not enough for 3 quota")
+
+print(bucket)
+```
+    >>>
+    Not enough for 3 quota
+    Bucket (quota=1)
+* Problem with this implementation is that we never now what is the quota level started with. It would be helpful to know why have deduct blocked the quota usage, is it because it has runout of the quota or haven't been filled this period.
+
+To fix this we may implement `max_quota` and `quota_consumed` for this period:
+```python
+class NewBucket:
+    def __init__(self, period):
+        self.period_delta = timedelta(seconds=period)
+        self.reset_time = datetime.now()
+        self.max_quota = 0
+        self.quota_consumed = 0
+    def __repr__(self):
+        return (f"NewBucket(max_quota={self.max_quota}, "
+                f"quota_consumed={self.quota_consumed})")
+```
+To match the previous interface of the `Bucket` class, we can use `@property` method to compute the current level on-the-fly using this new attributes:
+```python
+    @property
+    def quota(self):
+        return self.max_quota - self.quota_consumed
+```
+Implementing `fill` and `deduct` methods:
+```python
+    @quota.setter
+    def quota(self, amount):
+        delta = self.max_quota - amount
+        if amount = 0:
+            # Quota being reset for a new period
+            self.quota_consumed = 0
+            self.max_quota = 0
+        elif delta < 0:
+            # Quota being filled for the new period
+            assert self.quota_consumed == 0
+            self.max_quota = amount
+        else:
+            # Quota being consumed during the period
+            assert self.max_quota >= self.quota_consumed
+
+
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
