@@ -252,7 +252,7 @@ Implementing `fill` and `deduct` methods:
     @quota.setter
     def quota(self, amount):
         delta = self.max_quota - amount
-        if amount = 0:
+        if amount == 0:
             # Quota being reset for a new period
             self.quota_consumed = 0
             self.max_quota = 0
@@ -263,7 +263,40 @@ Implementing `fill` and `deduct` methods:
         else:
             # Quota being consumed during the period
             assert self.max_quota >= self.quota_consumed
+            self.quota_consumed += delta
+```
+Code will work with previous demo:
+```python
+bucket = NewBucket(60)
+print("Initial", bucket)
+fill(bucket, 100)
+print("Filled", bucket)
 
+if deduct(bucket, 99):
+    print("Had 99 quota")
+else:
+    print("Not enough for 99 quota")
+
+print("Now", bucket)
+
+if deduct(bucket, 3):
+    print("Had 3 quota")
+else:
+    print("Not enough for 3 quota")
+
+print("Still", bucket)
+```
+    >>>
+    Initial NewBucket(max_quota=0, quota_consumed=0)
+    Filled NewBucket(max_quota=100, quota_consumed=0)
+    Had 99 quota
+    Now NewBucket(max_quota=100, quota_consumed=99)
+    Not enough for 3 quota
+    Still NewBucket(max_quota=100, quota_consumed=99)
+
+`@property` especially convenient because it lets make you incremental incremental progress toward better data model over time. It is better to implement `fill` and `deduct` methods as instance methods from the beginning, however it a real-world example when code growth over time, scope increases, multiple authors contribute without anyone considering long-term hygiene and so on.
+
+It is better to think about refactoring a class when you start to overuse `@property` methods.
 
 
 
