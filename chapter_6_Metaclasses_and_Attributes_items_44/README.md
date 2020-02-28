@@ -481,6 +481,114 @@ print(f"Second {second_exam.writing_grade} is right")
     First  82 is right
     Second 75 is right
 
+## Item 47: Use `__getattr__`, `__getattribute__` and `__setattr__` for Lazy Attributes
 
+Python object hooks are good way to write generic code to glue a system together.
+
+* For example, we need to represent our database records as a Python objects. Database ahs its schema already. Good thing is that code in Python, which connects code to database does not need to know the exact schema, it can be generic.
+
+THis dynamic behavior is possible with the `__getattr__` special methods. If a class defines `__getattr__`, that method calls each time when an attribute can't be found in an object's instance dictionary:
+```python
+class LazyRecord:
+    def __init__(self):
+        self.exists = 5
+    def __getattr__(self, name):
+        value = f"Value for {name}"
+        setattr(self, name, value)
+        return value
+```
+Here we access a missing attribute `foo`, which forces Python call `__getattr__` method:
+```python
+data = LazyRecord()
+print(f"Before: {data.__dict__}")
+print(f"Foo: {data.foo}")
+print(f"After: {data.__dict__}")
+```
+    >>>
+    Before: {'exists': 5}
+    Foo: Value for foo
+    After: {'exists': 5, 'foo': 'Value for foo'}
+
+Here is a logging implemented. Note how `super().__getattr__()` calling superclass's implementation of `__getattr__` to fetch the real property and avoid infinite recursion:
+```python
+class LoggingLazyRecord(LazyRecord):
+    def __getattr__(self, name):
+        print(f"* Called __getattr__({name!r}), "
+                f"populating instance dictionary")
+        result = super().__getattr__(name)
+        print(f"Reading {result!r}")
+        return result
+
+data = LoggingLazyRecord()
+print(f"Exists:     {data.exists}")
+print(f"First foo:  {data.foo}")
+print(f"Second.foo: {data.foo}")
+
+```
+    >>>
+    Exists:     5
+    * Called __getattr__('foo'), populating instance dictionary
+    Reading 'Value for foo'
+    First foo:  Value for foo
+    Second.foo: Value for foo
+
+The `exists` attribute is present, `__getattr__` not called. The foo attribute is absent and `__getattr__` is called. However, on second calling of the `foo` attribute `__getattr__` is not called, because `foo` is populated in the instance dictionary by `__setattr__`.
+
+This behavior is helpful for use cases like lazily accessing schemaless data. `__getattr__` runs ones populating all the attributes, al the following accesses retrieve the existing results.
+
+If we need to have it updated each call, we way use `__getattribute__` method instead. This attribute will is called every time a attribute is accessed. It may be expensive on the program resource wise. Here is the example of `__getattribute__`:
+```python
+class ValidatingRecord:
+    def __init__(self):
+        self.exist = 5
+    def __getattribute__(self, name):
+        print(f"* Called __getattribute__({name!r})")
+        try:
+            value = super().__getattribute__(name)
+            print(f"* Found {name!r}, returning {value!r}")
+            return value
+        except AttributeError:
+            value = f"Value for {name}"
+            print(f"* Setting {name!r} to {value!r}")
+            setattr(self, name, value)
+            return value
+
+
+data = ValidatingRecord()
+print(f"exists:     {data.exist}")
+print(f"First foo:  {data.foo}")
+print(f"Second foo: {data.foo}")
+```
+    >>>
+    * Called __getattribute__('exist')
+    * Found 'exist', returning 5
+    exists:     5
+    * Called __getattribute__('foo')
+    * Setting 'foo' to 'Value for foo'
+    First foo:  Value for foo
+    * Called __getattribute__('foo')
+    * Found 'foo', returning 'Value for foo'
+    Second foo: Value for foo
+
+* In the event when some attribute shouldn't exist, we can raise an `AttributeError` both on `__getattr__` and `__getattribute__`:
+```python
+class MissingPropertyRecord:
+    def __getattr__(self, name):
+        if name == "bad_name":
+            raise AttributeError(f"{name} is missing")
+            ...
+
+
+data = MissingPropertyRecord()
+data.bad_name
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 4, in __getattr__
+    AttributeError: bad_name is missing
+
+
+    
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
