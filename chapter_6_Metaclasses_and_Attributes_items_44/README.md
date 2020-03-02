@@ -516,7 +516,7 @@ class LoggingLazyRecord(LazyRecord):
         print(f"* Called __getattr__({name!r}), "
                 f"populating instance dictionary")
         result = super().__getattr__(name)
-        print(f"Reading {result!r}")
+        print(f"* Returning {result!r}")
         return result
 
 data = LoggingLazyRecord()
@@ -588,7 +588,111 @@ data.bad_name
       File "<stdin>", line 4, in __getattr__
     AttributeError: bad_name is missing
 
+* Python implementation for generic functionality often relies on `hasattr` built-in function to determine is the property exist, and the `getattr` to retrieve a value. These functions also look for attribute name in the instance `__dict__` before calling `__getattr__`:
+```python
+data = LoggingLazyRecord()  # Implements __getattr__
+print(f"Before:             {data.__dict__}")
+print(f"Has first foo:      {hasattr(data, 'foo')}")
+print(f"After:              {data.__dict__}")
+print(f"Has second foo:     {hasattr(data, 'foo')}")
+```
+    >>>
+    Before:             {'exists': 5}
+    * Called __getattr__('foo'), populating instance dictionary
+    * Returning 'Value for foo'
+    Has first foo:      True
+    After:              {'exists': 5, 'foo': 'Value for foo'}
+    Has second foo:     True
 
-    
+In this example, `__getattr__` is called only once. In the next example `__getattribute__` will be called each time `hasattr` and `getattr` is used with an instance:
+```python
+data = ValidatingRecord()   # Implements __getattribute__
+print(f"Has first foo:      {hasattr(data, 'foo')}")
+
+print(f"Has second foo:     {hasattr(data, 'foo')}")
+```
+    >>>
+    * Called __getattribute__('foo')
+    * Setting 'foo' to 'Value for foo'
+    Has first foo:  True
+
+    * Called __getattribute__('foo')
+    * Found 'foo', returning 'Value for foo'
+    Has second foo: True
+
+* Now, we want to save a value assigned to the Python object to the database. We can do it using `__setattr__` method:
+```python
+class SavingRecord():
+    def __setattr__(self, name, value):
+        # Save some data for the record
+        ...
+        super().__setattr__(name, value)
+```
+`__setattr__` method will be called each time when value is assigned:
+```python
+class LoggingSavingRecord(SavingRecord):
+    def __setattr__(self, name, value):
+        print(f"* Called __setattr__({name!r}, {value!r})")
+        super().__setattr__(name, value)
+
+
+data = LoggingSavingRecord()
+print(f"Before:  {data.__dict__}")
+data.foo = 5
+print(f"After:   {data.__dict__}")
+data.foo = 7
+print(f"Finally: {data.__dict__}")
+```
+    >>>
+    Before:  {}
+    * Called __setattr__('foo', 5)
+    After:   {'foo': 5}
+    * Called __setattr__('foo', 7)
+    Finally: {'foo': 7}
+
+* The problem with `__getattribute__` and `__setattr__` is that they are called each time when an attribute is accessed, even when we don't want it. For example, we want to look up keys in associated dictionary:
+```python
+class BrokenDictionaryRecord:
+    def __init__(self, data):
+        self._data = {}
+    def __getattribute__(self, name):
+        print(f"* Called __getattribute__({name!r})")
+        return self._data[name]
+```
+This require accessing `self._data` from the `__getattribute__` method. However, if we try to do it, Python will recurs until it reaches its stack limit and die:
+```python
+data = BrokenDictionaryRecord({"foo": 3})
+data.foo 
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 6, in __getattribute__
+      File "<stdin>", line 6, in __getattribute__
+      File "<stdin>", line 6, in __getattribute__
+      [Previous line repeated 992 more times]
+      File "<stdin>", line 5, in __getattribute__
+    RecursionError: maximum recursion depth exceeded while calling a Python object
+    * Called __getattribute__('_data')
+
+The problem is that `__getattribute__` accesses `self._data`, which causes `__getattribute__` to run again, which accesses `self._data`, and so on. To avoid this, we can use `super().__getattribute__` method to fetch values from instance dictionary:
+```python
+class DictionaryRecord:
+    def __init__(self, data):
+        self._data = data
+    def __getattribute__(self, name):
+        print(f"* Called __getattribute__({name!r})")
+        data_dict = super().__getattribute__("_data")
+        return data_dict[name]
+
+
+data = DictionaryRecord({"foo": 3})
+print(f"foo: {data.foo}")
+```
+    >>>
+    * Called __getattribute__('foo')
+    foo: 3
+* With `__setattr_` is `super().__setattr__` also needs to be used.
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
