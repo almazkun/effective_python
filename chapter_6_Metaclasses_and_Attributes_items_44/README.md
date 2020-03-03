@@ -692,7 +692,15 @@ print(f"foo: {data.foo}")
     >>>
     * Called __getattribute__('foo')
     foo: 3
-* With `__setattr_` is `super().__setattr__` also needs to be used.
+* With `___setattr__` is `super().__setattr__` also needs to be used.
+
+## Item 48: Validate Subclasses with `__init__subclass__`
+One of the simplest example of using metaclasses is verifying that a subclass was defined correctly. When working with complex class hierarchy, you way want to enforce a certain style, require overriding methods, or have strict relationships between attributes. Metaclasses enable this by providing a reliable way to run a validation code each time a subclass is defined. 
+
+Often a class's validation is run in the `__init__` method, when object of the class's type is constructed at runtime. Metaclasses can provide class validation even earlier: when module containing a class is being imported at the start of the program.
+
+Before implementing metaclasses it is a good idea to understand the metaclass action for standard object. Metaclass is defined by inheriting from `type`. By default, a metaclass receives the contents of associated `class` statements in its `__new__`method. Here we can 
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
