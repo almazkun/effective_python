@@ -694,13 +694,124 @@ print(f"foo: {data.foo}")
     foo: 3
 * With `___setattr__` is `super().__setattr__` also needs to be used.
 
-## Item 48: Validate Subclasses with `__init__subclass__`
+## Item 48: Validate Subclasses with `__init_subclass__`
 One of the simplest example of using metaclasses is verifying that a subclass was defined correctly. When working with complex class hierarchy, you way want to enforce a certain style, require overriding methods, or have strict relationships between attributes. Metaclasses enable this by providing a reliable way to run a validation code each time a subclass is defined. 
 
 Often a class's validation is run in the `__init__` method, when object of the class's type is constructed at runtime. Metaclasses can provide class validation even earlier: when module containing a class is being imported at the start of the program.
 
-Before implementing metaclasses it is a good idea to understand the metaclass action for standard object. Metaclass is defined by inheriting from `type`. By default, a metaclass receives the contents of associated `class` statements in its `__new__`method. Here we can 
+Before implementing metaclasses it is a good idea to understand the metaclass action for standard object. Metaclass is defined by inheriting from `type`. By default, a metaclass receives the contents of associated `class` statements in its `__new__`method. Here we can inspect and modify a class information before the type is actually constructed:
+```python
+class Meta(type):
+    def __new__(meta, name, bases, class_dict):
+        print(f"* Running {meta}.__new__ for {name}")
+        print(f"Bases: {bases}")
+        print(class_dict)
+        return type.__new__(meta, name, bases, class_dict)
 
 
+class MyClass(metaclass=Meta):
+    stuff=123
+    def foo(self):
+        pass
+
+
+class MySubclass(MyClass):
+    other = 567
+    def bar(self):
+        pass
+```
+The metaclass has access to the class, the parent classes (`bases`) and all the methods that are defined in the body of a class. All classes inherit from `object`, so it is not explicitly listed in the `tuple` of the base class:
+    >>>
+    * Running <class '__main__.Meta'>.__new__ for MyClass
+    Bases: ()
+    {'__module__': '__main__',
+     '__qualname__': 'MyClass',
+     'stuff': 123,
+     'foo': <function MyClass.foo at 0x0000022D3520E828>}
+
+    * Running <class '__main__.Meta'>.__new__ for MySubclass
+    Bases: (<class '__main__.MyClass'>,)
+    {'__module__': '__main__',
+     '__qualname__': 'MySubclass',
+     'other': 567, 
+     'bar': <function MySubclass.bar at 0x0000022D3520EC18>}
+
+* We can add functionality to the `Meta.__new__` method in order to validate all of the parameters of an associated class before it's defined. For example, we want te represent any type of multisided polygon. It can be done by defining a special validating metaclass and using it in the base class of my polygon class hierarchy. Note, it is important not to apply same validation to the base class.
+```python
+class ValidatePolygon(type):
+    def __new__(meta, name, bases, class_dict):
+        # Only validate subclasses of the Polygon class
+        if bases:
+            if class_dict["sides"] < 3:
+                raise ValueError("Polygon need 3+ sides")
+        return type.__new__(meta, name, bases, class_dict)
+
+
+class Polygon(metaclass=ValidatePolygon):
+    sides = None # Must be specified by subclasses
+    @classmethod
+    def interior_angles(cls):
+        return (cls.sides - 2) * 180
+
+
+class Triangle(Polygon):
+    sides = 3
+
+
+class Rectangle(Polygon):
+    sides = 4
+
+
+class Nonagon(Polygon):
+    sides = 9
+
+
+assert Triangle.interior_angles() == 180
+assert Rectangle.interior_angles() == 360
+assert Nonagon.interior_angles() == 1260
+```
+The exception will be raised when number of sides is fewer than 3:
+```python
+print("Before class")
+
+
+class Line(Polygon):
+    print("Before sides")
+    sides = 2
+    print("After sides")
+
+
+print("After class")
+```
+    Before class
+    Before sides
+    After sides
+    *** A Thing being made
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 7, in __new__
+    ValueError: Polygon need 3+ sides
+
+* this seems like a lot of machinery to accomplish a simple task. Luckily, Python 3.6 introduced simplified syntax `__init_subclass__` special class method - for achieving this behavior with much simpler syntax, avoiding metaclasses entirely. Here is an example of same functionality using new method:
+```python
+class BetterPolygon:
+    sides = None # Must be specified by subclass
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        if cls.sides < 3:
+            raise ValueError("Polygon need 3+ sides")
+        @classmethod
+        def interior_angles(cls):
+            return (cls.sides - 2) * 180
+
+
+class Hexagon(BetterPolygon):
+    sides = 6
+
+
+assert Hexagon.interior_angles() == 720
+
+
+```
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
