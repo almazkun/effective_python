@@ -800,9 +800,9 @@ class BetterPolygon:
         super().__init_subclass__()
         if cls.sides < 3:
             raise ValueError("Polygon need 3+ sides")
-        @classmethod
-        def interior_angles(cls):
-            return (cls.sides - 2) * 180
+    @classmethod
+    def interior_angles(cls):
+        return (cls.sides - 2) * 180
 
 
 class Hexagon(BetterPolygon):
@@ -810,8 +810,209 @@ class Hexagon(BetterPolygon):
 
 
 assert Hexagon.interior_angles() == 720
-
-
 ```
+The code is much shorter now, easier and exception is working:
+```python
+print("Before class")
+
+
+class Point(BetterPolygon):
+    sides = 1
+
+
+print("After class")
+```
+    >>>
+    Before sides
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 6, in __init_subclass__
+    ValueError: Polygon need 3+ sides
+
+* Another problem with standard Python metaclasses is that you can specify a single metaclass per class definition. If we need also validate color of the fill used for the region:
+```python
+class ValidateFilled(type):
+    def __new__(meta, name, bases, class_dict):
+        # Only validate subclasses of the Filled class
+        if bases:
+            if class_dict["color"] not in ("red", "green"):
+                raise ValueError("Fill color must be supported")
+            return type.__new__(meta, name, bases, class_dict)
+
+
+class Filled(metaclass=ValidateFilled):
+    color = None # Must be specified by subclass
+```
+When you try to use `Polygon` and `Filled` metaclass together you get a error message:
+```python
+class RedPolygon(Filled, Polygon):
+    color = "red"
+    sides = 5
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+
+It is possible to solve this problem by creating a complex hierarchy of metaclass `type` definition to layer validation:
+```python
+class ValidatePolygon(type):
+    def __new__(meta, name, bases, class_dict):
+        # Only validate non-root classes
+        if not class_dict.get("is_root"):
+            if class_dict["sides"] < 3:
+                raise ValueError("Polygons need 3+ sides")
+        return type.__new__(meta, name, bases, class_dict)
+
+
+class Polygon(metaclass=ValidatePolygon):
+    is_root = True
+    sides = None # Must be specified by subclass
+
+
+class ValidateFilledPolygon(ValidatePolygon):
+    def __new__(meta, name, bases, class_dict):
+        # Only validate non-root classes
+        if not class_dict.get("is_root"):
+            if class_dict["color"] not in ("red", "green"):
+                raise ValueError("Fill color must be supported")
+        return super().__new__(meta, name, bases, class_dict)
+
+
+class FilledPolygon(Polygon, metaclass=ValidateFilledPolygon):
+    is_root = True
+    color = None
+```
+This requires `FilledPolygon` instance to be `Polygon` instance:
+```python
+class GreenPentagon(FilledPolygon):
+    color = "green"
+    sides = 5
+
+
+greenie = GreenPentagon()
+assert isinstance(greenie, Polygon)
+```
+Validation works for colors:
+```python
+class OrangePentagon(FilledPolygon):
+    color = "orange"
+    sides = 5
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 6, in __new__
+    ValueError: Fill color must be supported
+
+and numbers of sides:
+```python
+class RedLine(FilledPolygon):
+    color = "red"
+    sides = 1
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 7, in __new__
+      File "<stdin>", line 6, in __new__
+    ValueError: Polygons need 3+ sides
+
+However, if we want to use one of this validations to other class hierarchy, we would need te rewrite all metaclasses as well. 
+
+The `__init_subclass__` special method can also be used to solve this method. It can be used with multiple layers of class hierarchy as long as the `super` built-in is used to call any parent or sibling `__init_subclass__` definitions. It is even compatible with multiple inheritance. Here is the modified `BetterPolygon` to validate colors as well:
+```python
+class Filled:
+    color = None # Must be specified by subclass
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        if cls.color not in ("red", "green", "blue"):
+                raise ValueError("Fills need a valid color")
+```
+We can inherit both class to define a new class. Both classes call `super().__init_subclass__()`, causing both validations run when a subclass is created:
+```python
+class RedTriangle(Filled, BetterPolygon):
+    color = "red"
+    sides = 3
+
+
+ruddy = RedTriangle()
+assert isinstance(ruddy, Filled)
+assert isinstance(ruddy, BetterPolygon)
+```
+Validation for number of sides works:
+```python
+print("Before class")
+
+
+class BlueLine(Filled, BetterPolygon):
+    color = "blue"
+    sides = 2
+
+
+print("After class")
+```
+    >>>
+    Before class
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 4, in __init_subclass__
+      File "<stdin>", line 6, in __init_subclass__
+    ValueError: Polygon need 3+ sides
+
+and for colors:
+```python
+print("Before class")
+
+
+class BeigeSquare(Filled, BetterPolygon):
+    color = "beige"
+    sides = 4
+
+
+print("After class")
+```
+    >>>
+    Before class
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 6, in __init_subclass__
+    ValueError: Fills need a valid color
+
+* We can use `__init_subclass__` in complex cases like diamond inheritance. Here is an example:
+```python
+class Top:
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        print(f"Top for {cls}")
+
+
+class Left(Top):
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        print(f"Left for {cls}")
+
+
+class Right(Top):
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        print(f"Right for {cls}")
+
+
+class Bottom(Left, Right):
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        print(f"Bottom for {cls}")
+```
+    >>>
+    Top for <class '__main__.Left'>
+    Top for <class '__main__.Right'>
+    Top for <class '__main__.Bottom'>
+    Right for <class '__main__.Bottom'>
+    Left for <class '__main__.Bottom'>
+
+`Top.__init_subclass__` is called only ones per each class, even thought there are two paths to it. 
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
