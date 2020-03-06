@@ -1011,8 +1011,206 @@ class Bottom(Left, Right):
     Right for <class '__main__.Bottom'>
     Left for <class '__main__.Bottom'>
 
-`Top.__init_subclass__` is called only ones per each class, even thought there are two paths to it. 
+`Top.__init_subclass__` is called only ones per each class, even though there are two paths to it. 
 
+## Item 49: Register Class Existence with `__init_subclass__`
+
+Another common way of using a metaclass is to register types in the program. Registration is useful when you need to do a reverse lookup, when it needed to map a identifier to s corresponding class.
+
+* For example, we need to make our own serializer, turn our objects into JSON strings. Here we it is implemented generically by defining a base class that records the constructor parameters and turns them into a JSON dictionary:
+```python
+import json
+
+
+class Serializable :
+    def __init__(self, *args):
+        self.args = args
+    def serialize(self):
+        return json.dumps({"args": self.args})
+```
+This class makes it easy to serialize simple, immutable data structures like `Point2D` to a string:
+```python
+class Point2D(Serializable):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return f"Point2D({self.x}, {self.y})"
+
+
+point = Point2D(5, 3)
+print(f"Object:     {point}")
+print(f"Serialized: {point.serialize()}")
+```
+    >>>
+    Object:     Point2D(5, 3)
+    Serialized: {"args": [5, 3]}
+
+Now, we need to deserialize Json and make an `Point2D` object:
+```python
+class Deserializable(Serializable):
+    @classmethod
+    def deserialize(cls, json_data):
+        params = json.loads(json_data)
+        return cls(*params["args"])
+```
+This is also works well for simple immutable data structures in a generic way:
+```python
+class BetterPoint2D(Deserializable):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return f"Point2D({self.x}, {self.y})"
+
+
+before = BetterPoint2D(5, 3)
+print(f"Before:     {before}")
+data = before.serialize()
+print(f"Serialized: {data}")
+after = BetterPoint2D.deserialize(data)
+print(f"After:      {after}")
+```
+    >>>
+    Before:     Point2D(5, 3)
+    Serialized: {"args": [5, 3]}
+    After:      Point2D(5, 3)
+
+The problem with this approach that you need to know intended type of serialized data ahead of time.
+
+* Ideally, we want to have many classes serializing data and one function deserializing any of them. To do so we can map object's class name in the JSON data:
+```python
+class BetterSerializable:
+    def __init__(self, *args):
+        self.args = args
+    def serialize(self):
+        return json.dumps({
+            "class": self.__class__.__name__,
+            "args": self.args,
+        })
+    def __repr__(self):
+        name = self.__class__.__name__
+        args_str = ", ".join(str(x) for x in self.args)
+        return f"{name}({args_str})"
+```
+Then we can maintain a mapping of class names back to constructors for this objects. THe general `deserialize` function works for any class passed to `register_class`:
+```python
+registry = {}
+
+
+def register_class(target_class):
+    registry[target_class.__name__] = target_class
+
+def deserialize(data):
+    params = json.loads(data)
+    name = params["class"]
+    target_class = registry[name]
+    return target_class(*params["args"])
+```
+To ensure that `deserialize` works properly, we must call `registry_class` for each class we want to deserialize in the future.
+```python
+class EvenBetterPoint2D(BetterSerializable):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.x = x
+        self.y = y
+
+
+register_class(EvenBetterPoint2D)
+```
+Now, we can deserialize any arbitrary string, without having to know which class it contains:
+```python
+before = EvenBetterPoint2D(5, 3)
+print(f"Before:     {before}")
+data = before.serialize()
+print(f"Serialized: {data}")
+after = deserialize(data)
+print(f"After:      {after}")
+```
+    >>>
+    Before:     EvenBetterPoint2D (5, 3)
+    Serialized: {"class": "EvenBetterPoint2D", "args": [5, 3]}
+    After:      EvenBetterPoint2D (5, 3)
+
+The problem is that you may forget to call `register_class`:
+```python
+class Point3D(BetterSerializable):
+    def __init__(self, x, y, z):
+        super().__init__(x, y, z)
+        self.x = x
+        self.y = y
+        self.z = z
+
+# Forgot to call register_class! Whoops!
+
+point = Point3D(5, 9, -4)
+data = point.serialize()
+deserialize(data)
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 4, in deserialize
+    KeyError: 'Point3D'
+
+* We can implement the metaclass which will ensure to register a class immediately after class's body:
+```python
+class Meta(type):
+    def __new__(meta, name, bases, class_dict):
+        cls = type.__new__(meta, name, bases, class_dict)
+        register_class(cls)
+        return cls
+
+
+class RegisteredSerializable(BetterSerializable, metaclass=Meta):
+    pass
+```
+Wen subclass of the `RegisteredSerializable` is defined we can be sure that `register_class` is called and deserialize will work properly:
+```python
+class Vector3D(RegisteredSerializable):
+    def __init__(self, x, y, z):
+        super().__init__(x, y, z)
+        self.x, self.y, self.z = x, y, z
+
+
+before = Vector3D(10, -7, 3)
+print(f"Before:     {before}")
+data = before.serialize()
+print(f"Serialized: {data}")
+print(f"After:      {deserialize(data)}")
+```
+    >>>
+    Before:     Vector3D(10, -7, 3)
+    Serialized: {"class": "Vector3D", "args": [10, -7, 3]}
+    After:      Vector3D(10, -7, 3)
+
+* Even better approach is to use `__init_subclass__` syntax:
+```python
+class BetterRegisteredSerializable(BetterSerializable):
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        register_class(cls)
+
+
+class Vector1D(BetterRegisteredSerializable):
+    def __init__(self, magnitude):
+        super().__init__(magnitude)
+        self.magnitude = magnitude
+
+
+before = Vector1D(6)
+print(f"Before:     {before}")
+data = before.serialize()
+print(f"Serialized: {data}")
+print(f"After:      {deserialize(data)}")
+```
+    >>>
+    Before:     Vector1D(6)
+    Serialized: {"class": "Vector1D", "args": [6]}
+    After:      Vector1D(6)
+By suing `__init_subclass__` (or metaclass) for class registration, you can be sure that class registration is done for each class. 
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
