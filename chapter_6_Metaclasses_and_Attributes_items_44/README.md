@@ -1212,5 +1212,150 @@ print(f"After:      {deserialize(data)}")
     After:      Vector1D(6)
 By suing `__init_subclass__` (or metaclass) for class registration, you can be sure that class registration is done for each class. 
 
+
+## Item 50: Annotate Class Attributes with `__set_name__`
+
+Pne more useful feature enabled by metaclasses is the ability to modify or annotate an attribute after it a class is defined in class but before an instance is used. THis approach is commonly used with descriptors.
+
+For example, we want to define a class which represents a row in a custom database. We need to have corresponding property on the class for each column in the database table:
+```python
+class Field:
+    def __init__(self, name):
+        self.name = name
+        self.internal_name = "_" + self.name
+    def __get__(self, instance, instance_type):
+        if instance is None:
+            return self
+        return getattr(instance, self.internal_name, "")
+    def __set__(self, instance, value):
+        setattr(instance, self.internal_name, value)
+```
+Then, we can define each field:
+```python
+class Customer:
+    first_name = Field("first_name")
+    last_name = Field("last_name")
+    prefix = Field("prefix")
+    suffix = Field("suffix")
+```
+Using this class is simple:
+```python
+cust = Customer()
+print(f"Before: {cust.first_name!r} {cust.__dict__}")
+cust.first_name = "Euclid"
+print(f"After: {cust.first_name!r} {cust.__dict__}")
+```
+    >>>
+    Before: '' {}
+    After: 'Euclid' {'_first_name': 'Euclid'}
+
+* But this class definition seems redundant. Why do we need to write `first_name` twice:
+```python
+class Customer:
+    # Left side is redundant with right side
+    first_name = Field("first_name")
+```
+The problem is that the order of operation in the `Customer` class definition is opposite to how it reads from left to right. First, the `Field` constructor is called as `Field("first_name")`. Then the return value of that is assigned to `Customer.first_name`. There is now way for a `Field` instance to know to which attribute its value will be assigned.
+
+We may use metaclass, to assign `Field.name` and `Field.internal_name` on the descriptor automatically:
+```python
+class Meta(type):
+    def __new__(meta, name, bases, class_dict):
+            for key, value in class_dict.items():
+                    if isinstance(value, Field):
+                        value.name = key
+                        value.internal_name = "_" + key
+                    cls = type.__new__(meta, name, bases, class_dict)
+                    return cls
+
+class DatabaseRow(metaclass=Meta):
+    pass
+```
+To work with the metaclass, `Field` class is mostly unchanged:
+```python
+class Field:
+    def __init__(self):
+        # Will be assigned by the metaclass
+        self.name = None
+        self.internal_name = None
+    def __get__(self, instance, instance_type):
+        if instance is None:
+            return Self
+        return getattr(instance, self.internal_name, "")
+    def __set__(self, instance, value):
+        setattr(instance, self.internal_name, value)
+```
+By using the metaclass and the new `Field` class, the class definition now doesn't have a redundant code:
+```python
+class BetterCustomer(DatabaseRow):
+    first_name = Field()
+    last_name = Field()
+    prefix = Field()
+    suffix = Field()
+```
+And behavior is unchanged:
+```python
+cust = Customer()
+print(f"Before: {cust.first_name!r} {cust.__dict__}")
+cust.first_name = "Euclid"
+print(f"After: {cust.first_name!r} {cust.__dict__}")
+```
+    >>>
+    Before: '' {}
+    After: 'Euclid' {'_first_name': 'Euclid'}
+
+The problem with this code is that in order to use `Field` class we also need to inherit from `DatabaseRow` class. If we fail to do so, code wil not work:
+```python
+class BrokenCustomer:
+    first_name = Field()
+    last_name = Field()
+    prefix = Field()
+    suffix = Field()
+
+
+cust = BrokenCustomer()
+cust.first_name = "Mersenne" 
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      File "<stdin>", line 11, in __set__
+    TypeError: attribute name must be string, not 'NoneType'
+
+* There is a solution for that in Python 3.6. It is `__set_name__` method. THis method is called on every descriptors instance and the attribute name to which descriptor instance was assigned. Now we don't need a metaclass:
+```python
+class Field:
+    def __init__(self):
+        self.name = None
+        self.internal_name = None
+    def __set_name__(self, owner, name):
+        self.name = name
+        self.internal_name = "_" + name
+    def __get__(self, instance, instance_type):
+        if instance is None:
+            return self
+        return getattr(instance, self.internal_name, "")
+    def __set__(self, instance, value):
+        setattr(instance, self.internal_name, value)
+```
+Here it is working:
+```python
+class FixedCustomer:
+    first_name = Field()
+    last_name = Field()
+    prefix = Field()
+    suffix = Field()
+
+
+cust = FixedCustomer()
+print(f"Before: {cust.first_name!r} {cust.__dict__}")
+cust.first_name = "Mersenne"
+print(f"After: {cust.first_name!r} {cust.__dict__}")
+```
+    >>>
+    Before: '' {}
+    After: 'Mersenne' {'_first_name': 'Mersenne'}
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
