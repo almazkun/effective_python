@@ -1356,6 +1356,112 @@ print(f"After: {cust.first_name!r} {cust.__dict__}")
     Before: '' {}
     After: 'Mersenne' {'_first_name': 'Mersenne'}
 
+## Item 51: Prefer Class Decorators Over Metaclasses for Composable Class Extensions
+
+For example, we need a debugging decorator, which will prints arguments, return values, and raise exceptions:
+```python
+from functools import wraps
+
+
+def trace_func(func):
+    if hasattr(func, "tracing"): # Only decorate once
+        return func
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        result = None
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            result = e
+            raise
+        finally:
+            print(f"{func.__name__} ({args!r}, {kwargs!r}) -> "
+                f"{result!r}")
+            wrapper.tracing = True
+    return wrapper
+```
+We can apply this decorator in our new `dict` subclass:
+```python
+class TraceDict(dict):
+    @trace_func
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    @trace_func
+    def __setitem__(self, *args, **kwargs):
+        return super().__setitem__(*args, **kwargs)
+    @trace_func
+    def __getitem__(self, *args, **kwargs):
+        return super().__getitem__(*args, **kwargs)
+```
+We can check the code:
+```python
+trace_dict = TraceDict([("hi", 1)])
+trace_dict["there"] = 2
+trace_dict["hi"]
+
+try:
+    trace_dict["does not exist"]
+except KeyError:
+    pass # Expected
+```
+    >>>
+    __init__ (({'hi': 1}, [('hi', 1)]), {}) -> None
+    __setitem__ (({'hi': 1, 'there': 2}, 'there', 2), {}) -> None
+    __getitem__ (({'hi': 1, 'there': 2}, 'hi'), {}) -> 1
+    __getitem__ (({'hi': 1, 'there': 2}, 'does not exist'), {}) -> KeyError('does not exist')
+
+The problem with this approach is that we need to redefine all of the methods that we want to decorate with `@trace_func`. It is redundant and error prone. If later methods are added to the `dict` superclass, these new methods won't be decorated unless added to the `TraceDict`. 
+
+* One wey to solve this is to use metaclass to automatically decorate all methods of a class:
+```python
+import types
+
+
+trace_types = (
+    types.MethodType,
+    types.FunctionType,
+    types.BuiltinFunctionType,
+    types.BuiltinMethodType,
+    types.MethodDescriptorType,
+    types.ClassMethodDescriptorType)
+
+
+class TraceMeta(type):
+    def __new__(meta, name, bases, class_dict):
+        klass = super().__new__(meta, name, bases, class_dict)
+        for key in dir(klass):
+            value = getattr(klass, key)
+            if isinstance(value, trace_types):
+                wrapped = trace_func(value)
+                setattr(klass, key, wrapped)
+        return klass
+```
+To verify this approach, we will use `dict` subclass with metaclass:
+```python
+class TraceDict(dict, metaclass=TraceMeta):
+    pass
+
+
+trace_dict = TraceDict([("hi", 1)])
+trace_dict["there"] = 2
+trace_dict["hi"]
+
+try:
+    trace_dict["does not exist"]
+except KeyError:
+    pass # Expected
+
+```
+    >>>
+    __new__ ((<class '__main__.TraceDict'>, [('hi', 1)]), {}) -> {}
+    __getitem__ (({'hi': 1, 'there': 2}, 'hi'), {}) -> 1
+    __getitem__ (({'hi': 1, 'there': 2}, 'does not exist'), {}) -> KeyError('does not exist')
+
+This works.
+
+* 
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
