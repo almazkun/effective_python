@@ -1377,8 +1377,8 @@ def trace_func(func):
             raise
         finally:
             print(f"{func.__name__} ({args!r}, {kwargs!r}) -> "
-                f"{result!r}")
-            wrapper.tracing = True
+                  f"{result!r}")
+    wrapper.tracing = True
     return wrapper
 ```
 We can apply this decorator in our new `dict` subclass:
@@ -1460,8 +1460,136 @@ except KeyError:
 
 This works.
 
-* 
+* What happen if we try to use `TraceMeta` when a superclass already has specified a metaclass:
+```python
+class OtherMeta(type):
+    pass
 
+
+class SimpleDict(dict, metaclass=OtherMeta):
+    pass
+
+
+class TraceDict(SimpleDict, metaclass=TraceMeta):
+    pass
+```
+    >>>
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+
+This happen when because `TraceMeta` does not inherit from `OtherMeta`. In theory, we can use metaclass inheritance, making `OtherMeta` inherit from `TraceMeta`:
+```python
+class TraceMeta(type):
+    ...
+
+
+class OtherMeta(TraceMeta):
+    pass
+
+
+class SimpleDict(dict, metaclass=OtherMeta):
+    pass
+
+
+class TraceDict(SimpleDict, metaclass=TraceMeta):
+    pass
+
+
+trace_dict = TraceDict([('hi', 1)])
+trace_dict['there'] = 2
+trace_dict['hi']
+try:
+    trace_dict['does not exist']
+except KeyError:
+    pass # Expected
+
+```
+    >>>
+    __init_subclass__ ((), {}) -> None
+    __new__ ((<class '__main__.TraceDict'>, [('hi', 1)]), {}) -> {}
+    __getitem__ (({'hi': 1, 'there': 2}, 'hi'), {}) -> 1
+    1
+    __getitem__ (({'hi': 1, 'there': 2}, 'does not exist'), {}) -> KeyError('does not exist')
+
+This also works, but it won't work with if we can't modify metaclass or use other utility metaclasses. Overall, this approach puts too many constrains, to really be useful.
+
+* We can make it work with `@class_decorators`. Class decorators works just like function decorators. THey are applied with the `@` symbol before the class declaration. The function is expected to modify or re-create the class accordingly and then return it:
+```python
+def my_class_decorator(klass):
+    klass.extra_param = "hello"
+    return klass
+
+
+@my_class_decorator
+class MyClass:
+    pass
+
+
+print(MyClass)
+print(MyClass.extra_param)
+```
+    >>>
+    <class '__main__.MyClass'>
+    hello
+
+* We can implement a class decorator to apply `trace_func` to all methods and functions of a class by moving the core of the `TraceMeta.__new__` method into stand-alone function. This implementation is much shorter than a metaclass version:
+```python
+def trace(klass):
+    for key in dir(klass):
+        value = getattr(klass, key)
+        if isinstance(value, trace_types):
+            wrapped = trace_func(value)
+            setattr(klass, key, wrapped)
+    return klass
+```
+We can apply class decorator to have the same effect as with a metaclass:
+```python
+@trace
+class TraceDict(dict):
+    pass
+
+
+trace_dict = TraceDict([('hi', 1)])
+trace_dict['there'] = 2
+trace_dict['hi']
+try:
+    trace_dict['does not exist']
+except KeyError:
+    pass # Expected
+```
+    >>>
+    __new__ ((<class '__main__.TraceDict'>, [('hi', 1)]), {}) -> {}
+    __getitem__ (({'hi': 1, 'there': 2}, 'hi'), {}) -> 1
+    1
+    __getitem__ (({'hi': 1, 'there': 2}, 'does not exist'), {}) -> KeyError('does not exist')
+
+Class decorators also work with classes with already defined metaclasses:
+```python
+class OtherMeta(type):
+    pass
+
+
+@trace
+class TraceDict(dict, metaclass=OtherMeta):
+    pass
+
+
+trace_dict = TraceDict([('hi', 1)])
+trace_dict['there'] = 2
+trace_dict['hi']
+try:
+    trace_dict['does not exist']
+except KeyError:
+    pass # Expected
+```
+    >>>
+    __new__ ((<class '__main__.TraceDict'>, [('hi', 1)]), {}) -> {}
+    __getitem__ (({'hi': 1, 'there': 2}, 'hi'), {}) -> 1
+    1
+    __getitem__ (({'hi': 1, 'there': 2}, 'does not exist'), {}) -> KeyError('does not exist')
+
+* Class decorators are the best tool for composable class extending.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
