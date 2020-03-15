@@ -9,7 +9,7 @@ Keynotes from [Effective Python: 90 Specific Ways to Write Better Python (2nd Ed
 * [Chapter 4](https://github.com/almazkun/effective_python/tree/master/chapter_4_Comprehensions_and_Generators_27-36#chapter-4-comprehensions-and-generators)
 * [Chapter 5](https://github.com/almazkun/effective_python/tree/master/chapter_5_Classes_and_Interfaces_37-44#chapter-5-classes-and-interfaces)
 * [Chapter 6](https://github.com/almazkun/effective_python/tree/master/chapter_6_Metaclasses_and_Attributes_items_44-51#chapter-6-metaclasses-and-attributes)
-* [Chapter 7](https://github.com/almazkun/effective_python/tree/master/chapter_7_Concurrency_and_Paralellism_items_52-64#chapter-7-concurrency-and-paralellism)
+* [Chapter 7](https://github.com/almazkun/effective_python/tree/master/chapter_7_Cuncurrency_and_Parallelism_item_52-64#chapter-7-concurrency-and-parallelism)
 * [Chapter 8]
 * [Chapter 9]
 * [Chapter 10]

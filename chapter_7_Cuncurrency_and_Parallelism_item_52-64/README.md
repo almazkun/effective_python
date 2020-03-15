@@ -75,7 +75,20 @@ print(f"Finished in {delta:.3} seconds")
 
 If these processes run in sequence, the total delay would be 10 seconds and more, not ~ 2 seconds.
 
-* 
+* We can also pipe data from Python program into a subprocess and retrieve its output.This allows us to utilize many program to run in parallel.For example, we want to encrypt our data with `openssl`. Starting the child process with commend-line argument and I/O pipe is easy:
+```python
+import os
+
+
+def run_encrypt(data):
+    env = env.environ.copy()
+    env["password"] = "4(;QlJ?mVXv?^|+q@UmR%eQaq|Aqh):?"
+    proc = subprocess.Popen(
+        ["openssl", "enc", "-des3", "-pass", "env:password"],
+        env=env
+        stdin=subprocess.PIPE
+        stdout=subprocess.PIPE)
+        
 
 
 
