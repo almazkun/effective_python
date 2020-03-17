@@ -81,19 +81,91 @@ import os
 
 
 def run_encrypt(data):
-    env = env.environ.copy()
+    env = os.environ.copy()
     env["password"] = "4(;QlJ?mVXv?^|+q@UmR%eQaq|Aqh):?"
     proc = subprocess.Popen(
         ["openssl", "enc", "-des3", "-pass", "env:password"],
-        env=env
-        stdin=subprocess.PIPE
+        env=env,
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE)
-        
+    proc.stdin.write(data)
+    proc.stdin.flush() # Ensure that the child gets input
+    return proc
+```
+Here we encrypt random numbers
+```python
+procs = []
+for _ in range(3):
+    data = os.urandom(10)
+    proc = run_encrypt(data)
+    procs.append(proc)
+```
+The child processes run in parallel and consume their input, and retrieve their final output:
+```python
+for proc in procs:
+    out, _ = proc.communicate()
+    print(out[-10:])
+```
+    >>>
+    b'\x96\x82\x82\x9e\xde\xfa\x90\xe21t'
+    b'&\nRG\xab\x04\x99\xd7\xc1"'
+    b'x\xe3\xb8\xb8\xd7\xe5t\x03@\x8e'
+* It is also possible to create a chain of parallel processes, connecting the output of one child process to the input of another, and so on. Here is the command-line tool to output Whirlpool hash of the input stream:
+```python
+def run_hash(input_stdin):
+    return subprocess.Popen(
+        ["openssl", "dgst", "-whirlpool", "-binary"],
+        stdin=input_stdin,
+        stdout=subprocess.PIPE)
+```
+Now we can create set of processes to encrypt some data and hash the output:
+```python
+encrypt_procs = []
+hash_procs = []
 
+for _ in range(3):
+    data = os.urandom(100)
+    encrypt_proc = run_encrypt(data)
+    encrypt_procs.append(encrypt_proc)
+    hash_proc = run_hash(encrypt_proc.stdout)
+    hash_procs.append(hash_proc)
+    # Ensure that the child consumes the input stream and 
+    # the communicate() method doesn't inadvertently steal
+    # input from the child. Also lets SIGPIPE propagate to 
+    # upstream process if the downstream process dies.
+    encrypt_proc.stdout.close()
+    encrypt_proc.stdout = None
+```
+THe I/O between the child processes happens automatically once they are started:
+```python
+for proc in encrypt_procs:
+    proc.communicate()
+    assert proc.returncode == 0
 
+for proc in hash_procs:
+    out, _ = proc.communicate()
+    print(out[-10:])
+    assert proc.returncode == 0
+```
+    >>>
+    b'\xe5{.\x8fu\xa5\x06\x9d@P'
+    b'\xd8\xce\xba\x84\x9d\xcf\xc5\xfe\x86\x95'
+    b'[\x02\x9a\xb5M\x0e\xbd\x99)\x86'
 
+* If we worry that child process never terminate or somehow blocking on input or output pipes, we can use `timeout` parameter to the `communicate` method. THis causes an exception to be raised of the process hasn't finished in time:
+```python
+proc = subprocess.Popen(['sleep', '10'], shell=True)
 
+try:
+    proc.communicate(timeout=0.1)
+except subprocess.TimeoutExpired:
+    proc.terminate()
+    proc.wait()
 
+print('Exit status', proc.poll())
+```
+    >>>
+    Exit status 1
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
