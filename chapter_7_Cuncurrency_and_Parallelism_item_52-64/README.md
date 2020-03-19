@@ -167,5 +167,83 @@ print('Exit status', proc.poll())
     >>>
     Exit status 1
 
+## Item 53: Use Treads for Blocking I/O, Avoid Parallelism
+
+The standard implementation of Python called CPython. CPython runs a Python program in two steps. First, it parses and compiles the source text into `bytecode`, which is low-level representation of the program as 8-bit instructions. Then, CPython runs bytecode using stack-based interpreter. The bytecode interpreter has state that must be maintained and coherent while Python program executes. CPython enforces the coherence with a mechanism called `global interpreter lock` (GIL).
+
+Essentially, the GIL is a mutual-execution lock (mutex) that prevents CPython being affected by preemptive multithreading, where one thread takes control of a program by interrupting another thread. Such an interruption could corrupt the interpreter state (e.g. garbage collection reference count) if it comes at an unexpected time. The GIL prevents these interruptions and ensures that every bytecode instruction work correctly with the CPython implementation and its C-extension modules. 
+
+THe GIL has an important negative side effect. With programs written in languages like `C++` or `Java`, having multiple threads of execution means that a program can utilize multiple CPU cores at the same time. Although Python supports multiple threads of execution, GIL causes only one of them to be executed at a time. WHich mean that when you reach for threads for parallel computation and speed up your Python program, yu will be sorely disappointed.
+
+* For example, we need to do something computationally intensive in Python, like number factorization algorithm:
+```python
+def factorize(number):
+    for i in range(1, number + 1):
+        if number % i ==0:
+            yield i
+```
+Factoring a set of numbers would take sometime:
+```python
+import time 
+
+
+numbers = [2139079, 1214759, 1516637, 1852285]
+start = time.time()
+
+
+for number in numbers:
+    list(factorize(number))
+
+end = time.time()
+delta = end - start
+print(f"Took {delta:.3} seconds")
+
+
+```
+    >>>
+    Took 0.756 seconds
+
+* Using multiple threads to do this would make sense. Let's us try to implement it:
+```python
+from threading import Thread
+
+
+class FactorizeThread(Thread):
+    def __init__(self, number):
+        super().__init__()
+        self.number = number
+    def run(self):
+        self.factors = list(factorize(self.number))
+```
+Then, we start start a thread for each number to factorize in parallel:
+```python
+start = time.time()
+
+
+threads = []
+for number in numbers:
+    thread = FactorizeThread(number)
+    thread.start()
+    threads.append(thread)
+
+
+```
+We wait them to calculate and print the result:
+```python
+for thread in threads:
+    thread.join()
+
+
+end = time.time()
+delta = end - start
+print(f"Took {delta:.3} seconds")
+```
+    >>>
+    Took 1.16 seconds
+
+As we can see it took even longer to do the same calculations. 
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
