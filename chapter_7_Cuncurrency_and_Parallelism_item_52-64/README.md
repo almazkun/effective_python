@@ -241,7 +241,16 @@ print(f"Took {delta:.3} seconds")
     >>>
     Took 1.16 seconds
 
-As we can see it took even longer to do the same calculations. 
+As we can see it took even longer to do the same calculations. Here we can see effect of the GIL on a program running on standard CPython interpreter.
+
+* However there are way for CPython utilize multiple cores. But the standard `Thread` class do not work with multiple threads. ALso, implementing implementing multiple thread computation may require substantial effort. Given these limitation, why does Python supports threads at all? There are two good reasons.
+
+First, multiple threads make it easy for a program to seem like it's doing multiple things at the same time. Managing the juggling act of simultaneous tasks is difficult to implement yourself. With threads Python will take care of your concurrently running functions. THe CPython will ensure fairness between Python threads of execution, even though only one of them faking further progress at a time.
+
+Second reason, THreads used to deal with blocking I/O, which happens when Python does certain types of system calls.
+
+
+  
 
 
 
