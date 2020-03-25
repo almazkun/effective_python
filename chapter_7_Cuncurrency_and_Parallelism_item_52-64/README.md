@@ -249,9 +249,69 @@ First, multiple threads make it easy for a program to seem like it's doing multi
 
 Second reason, THreads used to deal with blocking I/O, which happens when Python does certain types of system calls.
 
+* Python programs use system calls to ask the computer's operating system to interact with the external environment on its behalf. Blocking I/O includes things like reading and writing files, interacting with networks, communicating with devices like displays, and so on. Threads help handle blocking I/O by insulating a program from the time it takes for the operating system to response to requests.
 
-  
+For, example we need to send signal to remote-controlled helicopter through a serial port. We use s slow system call (`select`) as a proxy for that activity. THis function asks the operating system to block for 0.1 second and return control to my program, which is similar to what would happen when using a synchronous serial port:
+```python
+import select
+import socket
 
+
+def slow_systemcall():
+    select.select([socket.socket()], [], [], 0.1)
+
+```
+Running this system call in serial requires a linear increasing amount of time:
+```python
+start = time.time()
+
+for _ in range(5):
+    slow_systemcall()
+
+end = time.time()
+delta = end - start
+print(f"Took {delta:.3f} seconds")
+```
+    >>>
+    Took 0.654 seconds
+
+* The problem is that while the `slow_systemcall` function is running, my program can't make any other progress. My program's main thread of execution is blocked on the `select` system call. This situation is awful in practice. You need to be able to compute your helicopter's next move while you are sending it a signal, otherwise, it will crash. This is when `Threads` will help us.
+
+Here we can run multiple `slow_systemcall` functions in separate threads. THis will allow to compute other tasks while leaving main thread to do its job.
+```python
+
+#```
+#With the threads started, here we do calculations of the next move, before waiting for the system call thread to finish:
+#```python
+
+threads = []
+
+for _ in range(5):
+    thread = Thread(target=slow_systemcall)
+    thread.start()
+    threads.append(thread)
+
+
+def compute_helicopter_location(index):
+    pass
+
+start = time.time()
+for i in range(5):
+    compute_helicopter_location(i)
+
+for thread in threads:
+    thread.join()
+
+end = time.time()
+delta = end - start
+print(f"Took {delta:.3f} seconds")
+```
+    >>>
+    Took 0.306 seconds
+
+This way we can show that all system calls will run in parallel from multiple Python threads, even though they are limited by GIL. 
+
+We can deal with blocking I/O also using `asyncio` build-in module and these alternative have important benefits, but those options might require extra work. 
 
 
 # 
