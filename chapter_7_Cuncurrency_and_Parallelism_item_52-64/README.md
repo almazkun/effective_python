@@ -311,7 +311,74 @@ print(f"Took {delta:.3f} seconds")
 
 This way we can show that all system calls will run in parallel from multiple Python threads, even though they are limited by GIL. 
 
-We can deal with blocking I/O also using `asyncio` build-in module and these alternative have important benefits, but those options might require extra work. 
+We can deal with blocking I/O also using `asyncio` build-in module and these alternative have important benefits, but those options might require extra work.
+
+## Item 54: Use `Look` to Prevent Data Races in Threads
+
+After reading about GIL, many new Python programmers assume they can forgo using mutual-exclusion locks (also called mutexes) in their code altogether. The GIL already preventing python threads running on multiple CPU cores in parallel, it also should lock the program's data. On some lists and dicts it seems like true. 
+
+But beware, GIL will not protect you. Even though, only one tread runs at a time, a thread's operations on data structures may be interrupted between any two bytecode instructions. This is dangerous if you access the same object from multiple threads simultaneously. This may lead to the invariants of data structures and leaving a program in a corrupted state. 
+
+* For example, we need a program that counts many things in parallel, like sampling a light level from whole network of sensors. If we need to know total number of samples over time, we can aggregate them with a new class:
+```python
+class Counter:
+    def __init__(self):
+        self.count = 0
+
+    
+    def increment(self, offset):
+        self.count += offset
+```
+Each sensor should have its own worker thread because reading from the sensor requires blocking I/O. After each sensor measurement, the worker thread increments the counter up to the maximum number of desired threads. 
+```python
+def worker(sensor_index, how_many, counter):
+    for _ in range(how_many)
+        # Read from the sensor
+        ...
+        counter.increment(1)
+```
+Now, we will run worker thread for each sensor in parallel:
+```python
+from threading import Thread
+
+
+how_many = 10**5
+counter = Counter()
+
+
+threads = []
+for i in range(5):
+    thread = Thread(target=worker, args=(i, how_many, counter))
+    threads.append(thread)
+    thread.start()
+
+
+for thread in threads:
+    thread.join()
+
+
+expected = how_many*5
+found = counter.count
+print(f"Counter should be {expected}, got {found}")
+```
+    >>>
+    Counter should be 500000, got 285627
+
+Why is this happened? Problem is that Python interpreter enforces fairness between all of the threads that are executing to ensure they are getting roughly equal processing time. To do so, Python suspends a thread as it running and resumes another thread in turn. But you may not know exactly when will Python do that. That's what happened it this case.
+
+The body of the `Counter` object's `increment` method looks simple, and for a worker it looks like this:
+```python
+counter.count += 1
+```
+But the += operation used on the object looks for the Python interpreter this way:
+```python
+value = getattr(counter, "count")
+result = value + 1
+setattr(counter, "count", result)
+```
+Python threads incrementing the counter can be interrupted between any of this operations. This is problematic because the wrong value can be incremented:
+```python
+```
 
 
 # 
