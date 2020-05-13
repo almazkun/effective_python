@@ -332,7 +332,7 @@ class Counter:
 Each sensor should have its own worker thread because reading from the sensor requires blocking I/O. After each sensor measurement, the worker thread increments the counter up to the maximum number of desired threads. 
 ```python
 def worker(sensor_index, how_many, counter):
-    for _ in range(how_many)
+    for _ in range(how_many):
         # Read from the sensor
         ...
         counter.increment(1)
@@ -378,8 +378,55 @@ setattr(counter, "count", result)
 ```
 Python threads incrementing the counter can be interrupted between any of this operations. This is problematic because the wrong value can be incremented:
 ```python
+# Running in Thread A 
+value_a = getattr(counter, "count")
+# Context switch to Tread B
+value_b = getattr(counter, "count")
+result_b = value_b +1
+setattr(counter, "count", result_b)
+# Context switch to back to Tread A
+context_a = value_a + 1
+setattr(counter, "count", result_a)
 ```
+Thread B interrupted Thread A in the middle of calculation and finished, then tread A continued, overwriting all of the progress made in Thread B in incrementing the counter. This is exactly what happened in the example above with the light sensors. 
 
+To prevent date races like this and other forms of data structure corruption, Python has robust set of tools in `threading` built-in module. The simplest and most useful is `Lock` class, a mutual-exclusion lock (mutex).
+
+Here is the `Counter` class protected against simultaneous access. Only one thread will be able to acquire lock at a time. Here is `with` is used to acquire and release the lock:
+```python
+from threading import Lock
+
+
+class LockingCounter:
+    def __init__(self):
+        self.lock = Lock()
+        self.count = 0
+
+    def increment(self, offset):
+        with self.lock:
+            self.count += offset
+```
+Now we run `worker' thread with 'LockingCounter':
+```python
+counter = LockingCounter()
+
+for i in range(5):
+    thread = Thread(target=worker, args=(i, how_many, counter))
+    threads.append(thread)
+    thread.start()
+
+
+for thread in threads:
+    thread.join()
+
+expected = how_many * 5
+found = counter.count
+print(f"Counter should be {expected}, got {found}")
+```
+    >>>
+    Counter should be 500000, got 500000
+
+`Lock` Solved the problem.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
