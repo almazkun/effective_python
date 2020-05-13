@@ -1,5 +1,5 @@
 # Effective Python: 90 Specific Ways to Write Better Python
-Keynotes from [Effective Python: 90 Specific Ways to Write Better Python (2nd Edition) (Effective Software Development Series)](https://effectivepython.com/)
+Keynotes from [Effective Python: 90 Specific Ways to Write Better Python (2nd Edition) (Effective Software Development Series)](https://www.amazon.com/gp/product/0134853989/ref=as_li_tl?ie=UTF8&tag=shipperfind-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0134853989&linkId=2ede739c97277ad077310278674bccf5)
 
 
 ## Content:
