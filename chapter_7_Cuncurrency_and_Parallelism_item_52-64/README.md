@@ -428,5 +428,54 @@ print(f"Counter should be {expected}, got {found}")
 
 `Lock` Solved the problem.
 
+## Item 55: Use `Queue` to Coordinate Work Between Threads
+To coordinate concurrent work in Python program it is very useful to use a pipeline of functions. 
+
+A pipeline looks like a assembly line, it has mane phases in serial, with specific function for each serial. New pieces of work continuously added to the beginning of the pipeline. The functions can operate concurrently, each working on the piece of work in its phase. The work moves forward as each function completes until there is no phases remaining. This is very good approach for blocking I/O or subprocesses.
+
+For example, we need a program which will take a constant stream of images from a camera, resize them and post them to the online photo gallery. Such program can be split into three phases: 1. New image retrieved from a camera; 2. Resized; 3 Uploaded. 
+
+Let's assume that the functions `download`, `resize` and `upload` are already written:
+```python
+def download(item):
+    return print(item, "downloaded.")
+
+
+def resize(item):
+    return print(item, "resized.")
+
+
+def uploaded(item):
+    return print(item, "uploaded.")
+```
+The first thing we need to do is design the way to hand a work from phase to phase. We can do it by using a thread-safe producer-consumer queue:
+```python
+from collection import deque
+from threading import Lock
+
+
+class MyQueue:
+    def __init__(self):
+        self.items = deque()
+        self.lock = Lock()
+```
+The Producer appends images to the end of the `deque`:
+```python
+    def put(self, item):
+        with self.lock:
+            self.items.append(item)
+```
+The consumer removes images from the front of the `deque`:
+```python
+    def get(self):
+        with self.lock:
+            return self.items.popleft()
+```
+Now we represent each phase of the pipeline as a Python thread that takes work from one queue, runs a function, and puts result in another queue. It also counts how many time the worker has checked for new input and how much work isn't completed:
+```python
+from threading import Thread
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
