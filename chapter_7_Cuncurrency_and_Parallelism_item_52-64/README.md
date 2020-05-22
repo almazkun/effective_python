@@ -474,6 +474,159 @@ The consumer removes images from the front of the `deque`:
 Now we represent each phase of the pipeline as a Python thread that takes work from one queue, runs a function, and puts result in another queue. It also counts how many time the worker has checked for new input and how much work isn't completed:
 ```python
 from threading import Thread
+import time
+    
+   
+class Worker(Thread):
+    def __init__(self, func, in_queue, out_queue):
+        super().__init__()
+        self.func = func
+        self.in_queue = in_queue
+        self.out_queue = out_queue
+        self.polled_count = 0
+        self.work_done = 0
+```
+The trickiest part is that the worker thread need sto properly handle the situation where the input queue is empty because the previous phase isn't finished yet. It is implemented in the section where `IndexError` catch is, it is like a holdup in assembly line. 
+```python
+    def run(self):
+        while True:
+            self.polled_count += 1
+            try:
+                item = self.in_queue.get()
+            except IndexError:
+                time.sleep(0.01) # No work to do
+            else:
+                result = self.func(item)
+                self.out_queue.put(result)
+                self.work_done += 1
+```
+Now we can connect the three phases together by creating the queues for their coordination points and corresponding worker threads:
+```python
+download_queue = MyQueue()
+resize_queue = MyQueue()
+upload_queue = MyQueue()
+done_queue = MyQueue()
+threads = [
+    Worker(download, download_queue, resize_queue),
+    Worker(resize, resize_queue, upload_queue),
+    Worker(upload, upload_queue, done_queue),
+]
+```
+Now we can start the thread and inject the work in it:
+```python
+for thread in threads:
+    thread.start()
+
+
+for _ in range(1000):
+    download_queue.put(object())
+```
+Now we wait until all work end up in `done_queue`:
+```python
+while len(done_queue.items) < 1000:
+    pass
+```
+This runs properly, but has an interesting side effect. The part where we catch `IndexError` exception in the `run` method, executes a large number of times:
+```python
+processed = len(done_queue.items)
+polled = sum(t.polled_count for t in threads)
+print(f"Processed {processed} items after polling {polled} times")
+```
+    >>>
+    Processed 1000 items after polling 3662 times
+
+When the worker functions vary in their respective speeds, an earlier phase can prevent progress in the later phases, backing up the pipeline. This causes the later processes to starve and constantly check their input quest, which is waisting CPU time doing nothing. 
+
+Three are also a three more problems with this implementation. First, determining that all of the input work is complete requires yet another busy wait on the `done_queue`. Second, in `Worker`, the `run` method will execute forever in its busy loop, there is no obvious way to signal to a worker thread that it's time to exit. Third, worst of all, it can cause the program to crash, because the program will eventually run out of memory. 
+
+It is hard to write good producer-consumer queue yourself. So why even bother?
+
+* `Queue` to the Rescue
+
+The Queue class from `queue` build-in modules provide all of the functionality you need to solve these problems. 
+
+`Queue` eliminates  the busy waiting in the worker by making the `get` method block until new data comes in.
+```python
+from queue import Queue
+
+
+my_queue = Queue()
+
+
+def consumer():
+    print("Consumer waiting")
+    my_queue.get()              # Runs after put() below
+    print("Consumer done")
+
+
+thread = Thread(target=consumer)
+thread.start()
+```
+Even though the thread is running first, it won't finish until an item is `put()` on the `Queue` instance and `get()` has something to return.
+```python
+print("Producer putting")
+my_queue.put(object())          # Runs before get() above
+print("Producer done")
+thread.join()
+```
+    >>>
+    Consumer waiting
+    Producer putting
+    Producer done
+    Consumer done
+To solve the pipeline backup issue, the Queue class allows to specify the maximum amount of pending work allowed between two phases.
+
+This buffer size blocks `put` when the queue is already full:
+```python
+my_queue = Queue(1)             # Buffer size of one
+
+
+def consumer():
+    time.sleep(0.1)             # Wait
+    my_queue.get()              # Runs second
+    print("Consumer got 1")
+    my_queue.get()              # Runs fourth
+    print("Consumer got 2")
+    print("Consumer done")
+
+
+thread = Thread(target=consumer)
+thread.start()
+```
+The wait should allow the producer thread to put both objects on the queue before the consumer thread even calls get. But, the size of `Queue` is one. This mean that producer have to wait at one get call from a consumer before being able to add a new item:
+```python
+my_queue.put(object())          # Runs first
+print("Producer put 1")
+my_queue.put(object())          # Runs third
+print("Producer put 2")
+print("Producer done")
+thread.join()
+```
+    >>>
+    Producer put 1
+    Consumer got 1
+    Producer put 2
+    Producer done
+    Consumer got 2
+    Consumer done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
