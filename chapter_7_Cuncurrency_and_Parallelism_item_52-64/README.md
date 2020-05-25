@@ -609,25 +609,156 @@ thread.join()
     Producer done
     Consumer got 2
     Consumer done
+* The `Queue` class can also track the progress of work using `task_done` method. 
+Here is the example of `consumer` method using `task_done` when it finishes working on the item. 
+```python
+in_queue = Queue()
+def consumer():
+    print("Consumer waiting")
+    work = in_queue.get()       # Runs second
+    print("Consumer working")
+    # Working
+    ...
+    print("Consumer done")
+    in_queue.task_done()        # Runs third
 
 
+thread = Thread(target=consumer)
+thread.start
+```
+Now, producer code doesn't have to join the consumer thread or poll. Producer can just wait for the `in_queue` to finish by calling `join` on `Queue` instance. Even once it's empty, the `in_queue` won't be joinable until after `task_done` is called for every item that was ever enqueued:
+```python
+print("Producer putting")
+in_queue.put(object())
+print("Producer waiting")
+in_queue.join()
+print("Producer done")
+thread.join()
+```
+    >>>
+    Consumer waiting
+    Producer putting
+    Producer waiting
+    Consumer working
+    Consumer done
+    Producer done
+
+* We can put all these behavior into a `Queue` subclass that also tells the worker thread when it should stop processing. 
+We can accomplish it by defining special `close method` that adds a special `sentinel` item to the queue that indicated that there will be no more input after it.
+```python
+class ClosableQueue(Queue): 
+    SENTINEL = object()
+
+    def close(self):
+        self.put(self.SENTINEL)
+```
+Then, we add iterator for the queue, that looks for special object and stops iteration when it's found. This `__iter__` method also calls `task_done`at appropriate times, letting me track the progress of work in the queue.
+```python
+    def __iter__(self):
+        while True:
+            item = self.get()
+            try:
+                if item is self.SENTINEL:
+                    return # Cause the thread to exit
+                yield item
+            finally:
+                self.task_done()
+```
+Now, we can redefine the worker thread to rely on the behavior of the `ClosableQueue` class. The thread will exit when the for loop is exhausted.
+```python
+class StoppableWorker(Thread):
+    def __init__(self, func, in_queue, out_queue):
+        super().__init__()
+        self.func = func
+        self.in_queue = in_queue
+        self.out_queue = out_queue
+
+    def run(self):
+        for item in self.in_queue:
+            result = self.func(item)
+            self.out_queue.put(result)
+```
+Re-write the set of worker threads with new worker class:
+```python
+download_queue = ClosableQueue()
+resize_queue = ClosableQueue()
+upload_queue = ClosableQueue()
+done_queue = ClosableQueue()
+threads = [
+    StoppableWorker(download, download_queue, resize_queue),
+    StoppableWorker(resize, resize_queue, upload_queue),
+    StoppableWorker(upload, upload_queue, done_queue),
+]
+```
+After running this worker thread we will also send the stop signal by closing the input queue of the first phase:
+```python
+for thread in threads:
+    thread.start()
+
+for _ in range(1000):
+    download_queue.put(object())
+
+download_queue.close()
+```
+Finally, we wait for the work to finish by joining the queues that connect the phases:
+```python
+download_queue.join()
+resize_queue.close()
+resize_queue.join()
+upload_queue.close()
+upload_queue.join()
+print(done_queue.qsize(), "items finished")
+
+for thead in threads:
+    thread.join()
+```
+    >>>
+    1000 items finished
+
+* We can also make multiple worker threads for each phase. 
+This way we can increase I/O parallelism and speed up these types of program significantly. For that we need to define a helper function which will stop and start each parallel thread.
+```python
+def start_threads(count, *args):
+    threads = [StoppableWorker(*args) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    return threads
 
 
+def stop_threads(closable_queue, threads):
+    for _ in threads:
+        closable_queue.close()
+
+    closable_queue.join()
+
+    for thread in threads:
+        threads.join()
+```
+Putting everything together:
+```python
+download_queue = ClosableQueue()
+resize_queue = ClosableQueue()
+upload_queue = ClosableQueue()
+done_queue = ClosableQueue()
+
+download_threads = start_threads(3, download, download_queue, resize_queue)
+resize_threads = start_threads(4, resize, resize_queue, upload_queue)
+upload_threads = start_threads(5, upload, upload_queue, done_queue)
+
+for _in range(1000):
+    download_queue.put(object())
+
+stop_threads(download_queue, download_threads)
+stop_threads(resize_queue, resize_threads)
+stop_threads(upload_queue, upload_threads)
+
+print(done_queue.qsize(), "items finished")
+```
+    >>>
+    1000 items finished
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+`Queue` class is great for building robust pipelines.
 
 
 # 
