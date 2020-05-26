@@ -761,5 +761,58 @@ print(done_queue.qsize(), "items finished")
 `Queue` class is great for building robust pipelines.
 
 
+## Item 56:Know How to Recognize When Concurrency is Necessary
+Here is an implementation of the Conway's Game of Life, a finite state automata illustration. THe rules a explained below. It start with 2-dimensional grid, of arbitrary size, with cells either Alive ` * ` or Dead ` - `. Based of the state of the neighboring sells on each turn each cell decides if its Alive, Dead or should regenerate. 
+* This is the representation of the game 5*5 grid after 4 generations:
+
+0|1|2|3|4
+-|-|-|-|-
+----- | ----- | ----- | ----- | -----
+-*--- | --*-- | --**- | --*-- | -----
+--**- | --**- | -*--- | -*--- | -**--
+---*- | --**- | --**- | --*-- | -----
+----- | ----- | ----- | ----- | -----
+
+* We can represent the state with simple container class:
+```python
+EMPTY = "-"
+ALIVE = "*"
+class Grid:
+    def __init__(self, height, width):
+        self.height = height
+        self.width = width
+        self.rows = []
+        for _ in range(self.height):
+            self.rows.append([EMPTY] * self.width)
+        
+    def get(self, x, y):
+        return self.rows[y % self.height][x % self.width]
+
+    def set(self, y, x, state):
+        self.rows[y % self.height][x % self.width] = state
+    
+    def __str__(self):
+        output = ''
+        for row in self.rows:
+            for cell in row:
+                output += cell
+            output += '\n'
+        return output
+```
+We can see the result of the class:
+```python
+grid = Grid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+```
+    >>>
+    ---*-----
+    ----*----
+    --***----
+    ---------
+    ---------
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
