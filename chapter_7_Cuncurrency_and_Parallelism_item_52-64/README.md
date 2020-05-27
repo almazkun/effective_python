@@ -814,5 +814,120 @@ grid.set(2, 4, ALIVE)
     --***----
     ---------
     ---------
+
+* Here is a helper function, to retrieve information about living neighbors:
+```python
+def count_neighbors(x, y, get):
+    n_ = get(y - 1, x + 0) # North
+    ne = get(y - 1, x + 1) # Northeast
+    e_ = get(y + 0, x + 1) # East
+    se = get(y + 1, x + 1) # Southeast
+    s_ = get(y + 1, x + 0) # South
+    sw = get(y + 1, x - 1) # Southwest
+    w_ = get(y + 0, x - 1) # West
+    nw = get(y - 1, x - 1) # Northwest
+    neighbor_states = [n_, ne, e_, se, s_, sw, w_, nw]
+    count = 0
+
+    for state in neighbor_states:
+        if state == ALIVE:
+            count += 1
+    return count
+```
+* Now we define `game_logic`, the rule is: Become alive if 3 neighbors are `ALIVE`. die if 2 or less and 4 or more:
+```python
+def game_logic(state, neighbors):
+    if state == ALIVE:
+        if neighbors < 2:
+            return EMPTY        # Die if less than 2
+        elif neighbors > 3:
+            return EMPTY        # Die if more that 3 
+    else:
+        if neighbors == 3:
+            return ALIVE        # Regenerate
+    return state
+```
+* Next function will change the state of the grid, check the state of cell, inspect the states of neighbors and update the resulting grid accordingly:
+```python
+def cell_step(y, x, get, set):
+    state = get(x, y)
+    neighbors = count_neighbors(y, x, get)
+    next_state = game_logic(state, neighbors)
+    set(y, x, next_state)
+```
+* Finally, we define function that will move forward the game, calling the `get` method on previous version of the grid and calling `set` method on the next version of the grid:
+```python
+def simulate(grid):
+    next_grid = Grid(grid.height, grid.width)
+    for y in range(grid.height):
+        for x in range(grid.width):
+            step_sell(y, x, grid.get, next_grid.set)
+    return next_grid
+```
+* Now? we can progress the game one stem at the time:
+```python
+class ColumnPrinter:
+    def __init__(self):
+        self.columns = []
+
+    def append(self, data):
+        self.columns.append(data)
+
+    def __str__(self):
+        row_count = 1
+        for data in self.columns:
+            row_count = max(
+                row_count, len(data.splitlines()) + 1)
+
+        rows = [''] * row_count
+        for j in range(row_count):
+            for i, data in enumerate(self.columns):
+                line = data.splitlines()[max(0, j - 1)]
+                if j == 0:
+                    padding = ' ' * (len(line) // 2)
+                    rows[j] += padding + str(i) + padding
+                else:
+                    rows[j] += line
+
+                if (i + 1) < len(self.columns):
+                    rows[j] += ' | '
+
+        return '\n'.join(rows)
+
+
+columns = ColumnPrinter()
+for i in range(5):
+    columns.append(str(grid))
+    grid = simulate(grid)
+
+print(columns)
+```
+    >>>
+        0     |     1     |     2     |     3     |     4    
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
+THis approach is working great for running in one thread on one machine. But is the requirements were to change to make possible I/O in `game_logic` to make it online game, where the transition of state is dependant in grid state and the communication with the other players over the internet. 
+
+The simpliest approach would be to add blocking I/O directly to the `game_logic`:
+```python
+def game_logic(state, neighbors):
+    ...
+    # Do some blocking input/output in here:
+    date = my_socket.recv(100)
+    ...
+```
+The problem with this approach, that it will slow down the program. If we consider the latency of 100 milliseconds and a grid of 45 cells it will take 4,5 seconds for a one turn. Also, it scales poorly, for a grid of 10000 cells it would need over 15 minutes to evaluate each generation.
+
+The solution is to do I/O in parallel so each generation takes roughly 100 milliseconds, regardless of the grid size. The process of `spawning` a concurrent line of execution for each unit of work is called `fan-out`. Waiting for all the those concurrent units to finish before moving to the net phase in a coordinated process is called `fan-in`.
+
+Python provides many tools for achieving `fan-out` and `fan-in`. Which will be covered in the next chapters.
+
+
+
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
