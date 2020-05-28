@@ -926,7 +926,30 @@ The solution is to do I/O in parallel so each generation takes roughly 100 milli
 
 Python provides many tools for achieving `fan-out` and `fan-in`. Which will be covered in the next chapters.
 
+## Item 57: Avoid Creating New `Thread` Instance for On-demand Fan-out:
+`Threads` are natural first tool to reach for doing parallel I/O in Python. However, they have significant down side when you apply them for fanning-out too many concurrent lines of execution. 
 
+To demonstrate it we will use our implementation of `Game of Life`, where we will use threads to sole the latency problem caused by doing I/O in the `game_logic` function.
+
+* To begin with, threads require coordination using Lock to ensure that concurrent usage won't damage data structures. We can create a subclass of a `Grid` class to add locking behavior:
+```python
+from threading import Lock
+class LockingGrid(Grid):
+    def __init__(self, height, width):
+        super().__inti__(height, width)
+        self.lock = Lock
+
+    def __str__(self):
+        with self.lock:
+            return super().__str__()
+    
+    def get(self, y, x):
+        with self.lock:
+            return super().get(y, x)
+    
+    def set(self, y, x, state):
+        with self.lock:
+            return super().set(y, x, state)
 
 
 # 
