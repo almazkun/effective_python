@@ -785,7 +785,7 @@ class Grid:
         for _ in range(self.height):
             self.rows.append([EMPTY] * self.width)
         
-    def get(self, x, y):
+    def get(self, y, x):
         return self.rows[y % self.height][x % self.width]
 
     def set(self, y, x, state):
@@ -817,7 +817,7 @@ grid.set(2, 4, ALIVE)
 
 * Here is a helper function, to retrieve information about living neighbors:
 ```python
-def count_neighbors(x, y, get):
+def count_neighbors(y, x, get):
     n_ = get(y - 1, x + 0) # North
     ne = get(y - 1, x + 1) # Northeast
     e_ = get(y + 0, x + 1) # East
@@ -849,8 +849,8 @@ def game_logic(state, neighbors):
 ```
 * Next function will change the state of the grid, check the state of cell, inspect the states of neighbors and update the resulting grid accordingly:
 ```python
-def cell_step(y, x, get, set):
-    state = get(x, y)
+def step_cell(y, x, get, set):
+    state = get(y, x)
     neighbors = count_neighbors(y, x, get)
     next_state = game_logic(state, neighbors)
     set(y, x, next_state)
@@ -861,7 +861,7 @@ def simulate(grid):
     next_grid = Grid(grid.height, grid.width)
     for y in range(grid.height):
         for x in range(grid.width):
-            step_sell(y, x, grid.get, next_grid.set)
+            step_cell(y, x, grid.get, next_grid.set)
     return next_grid
 ```
 * Now? we can progress the game one stem at the time:
@@ -934,10 +934,12 @@ To demonstrate it we will use our implementation of `Game of Life`, where we wil
 * To begin with, threads require coordination using Lock to ensure that concurrent usage won't damage data structures. We can create a subclass of a `Grid` class to add locking behavior:
 ```python
 from threading import Lock
+
+
 class LockingGrid(Grid):
     def __init__(self, height, width):
-        super().__inti__(height, width)
-        self.lock = Lock
+        super().__init__(height, width)
+        self.lock = Lock()
 
     def __str__(self):
         with self.lock:
@@ -950,6 +952,76 @@ class LockingGrid(Grid):
     def set(self, y, x, state):
         with self.lock:
             return super().set(y, x, state)
+
+```
+* Then, we can rewrite `simulate` function to *fan-out* by creating a thread for each call to `step_cell`. The Threads will run in parallel. Then we will `fan-in` by waiting for all of the calls complete before moving to the next generation.
+```python
+from threading import Thread
+
+
+def count_neighbors(y, x, get):
+    ...
+
+def game_logic(state, neighbors):
+    ...
+    # Do some blocking/ I/O in here:
+    data = my_socket.recv(100)
+    ...
+
+def step_cell(y, x, get, set):
+    state = get(y, x)
+    neighbors = count_neighbors(y, x, get)
+    next_state = game_logic(state, neighbors)
+    set(y, x, next_state)
+
+def step_cell(y, x, get, set):
+    state = get(y, x)
+    neighbors = count_neighbors(y, x, get)
+    next_state = game_logic(state, neighbors)
+    set(y, x, next_state)
+
+
+def simulate_threaded(grid):
+    next_grid = LockingGrid(grid.height, grid.width)
+
+    threads = []
+    for y in range(grid.height):
+        for x in range(grid.width):
+            args = (y, x, grid.get, next_grid.set)
+            thread = Thread(target=step_cell, args=args)
+            thread.start()                                  # Fan-out
+            threads.append(thread)
+    
+    for thread in threads:
+        thread.join()                                       # Fan-in
+
+    return next_grid
+```
+We can run this code with the same `step_cell` and the sane driver with only two lines changed:
+```python
+grid = LockingGrid(5 , 9)
+
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+for i in range(5):
+    columns.append(str(grid))
+    grid = simulate_threaded((grid)
+
+print(columns)
+```
+    >>>
+        0     |     1     |     2     |     3     |     4    
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
 
 
 # 
