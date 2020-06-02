@@ -1022,6 +1022,47 @@ print(columns)
     --------- | ---*----- | ---**---- | ---**---- | ---***---
     --------- | --------- | --------- | --------- | ---------
 
+* This works as expected. However this code has three big problems:
+
+    - The `Thread` instance require special coordinator, this makes threaded code harder extend and maintain over time.
+    - Threads require a lot of memory - about 8 MB per thread - which will be a problem when number of threads grow. 
+    - Starting a thread is costly, whish lead to negative performance impact when they run and switch between each other. 
+
+* This code also is difficult to debug. For example `game_logic` rises and exception, whish is highly likely due to the nature of I/O:
+```python
+def game_logic(state, neighbors):
+    ...
+    raise OSError("Problem with I/O")
+    ...
+```
+We can test this by pointing `sys.stderr` output to the in-memory `StringIO` buffer:
+```python
+import contextlib
+import io
+
+
+fake_stderr = io.StringIO()
+with contextlib.redirect_stderr(fake_stderr):
+    thread = Thread(target=game_logic, args=(ALIVE, 3))
+    thread.start()
+    thread.join()
+
+print(fake_stderr.getvalue())
+```
+    >>>
+    Exception in thread Thread-1520646:
+    Traceback (most recent call last):
+        File "C:\Users\Home\Anaconda3\lib\threading.py", line 926, in _bootstrap_inner
+            self.run()
+        File "C:\Users\Home\Anaconda3\lib\threading.py", line 870, in run
+            self._target(*self._args, **self._kwargs)
+        File "<ipython-input-15-526c19a86b48>", line 2, in game_logic
+            raise OSError("Problem with I/O")
+    OSError: Problem with I/O
+
+An exception is raised as expected, however the code created the `thread` and called `.join()` on it is unaffected. This happens because the `Thread` class will catch all the exceptions raised by target function. 
+
+Thus, this makes `Threads` not the best solution for on-demand threading.
 
 
 # 
