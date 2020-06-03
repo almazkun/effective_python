@@ -1065,5 +1065,111 @@ An exception is raised as expected, however the code created the `thread` and ca
 Thus, this makes `Threads` not the best solution for on-demand threading.
 
 
+## Item 58: Understand How Using `Queue` for Concurrency Requires Refactoring
+To avoid problems with `Threads`, we can use `Queues`. We can define a fixed number of workers threads upfront. This will minimize the threading overhead and allow parallelism. 
+
+* To so this, we two `ClosableQueue` instances to use for communicating to and from the worker threads that execute `game_logic` function.
+```python
+from queue import Queue
+
+class ClosableQueue(Queue):
+    SENTINEL = object()
+
+    def close(self):
+        self.put(self.SENTINEL)
+
+    def __iter__(self):
+        while True:
+            item = self.get()
+            try:
+                if item is self.SENTINEL:
+                    return  # Cause the thread to exit
+                yield item
+            finally:
+                self.task_done()
+
+
+in_queue = ClosableQueue()
+out_queue = ClosableQueue()
+```
+* We can start multiple threads that will consume items from the `in_queue`, process them by calling `game_logic`, and put the results in `out_queue`. These threads will run concurrently, allowing for the parallel I/O.
+
+```python
+class StoppableWorker(Thread):
+    ...
+
+
+def game_logic(state, neighbors):
+    ...
+    # Some blocking I/O
+    data = my_socket.recv(100)
+    ...
+
+
+def game_logic_thread(item):
+    y, x, state, neighbors = item
+    try:
+        next_state = game_logic(state, neighbors)
+    except Exception as e:
+        next_state = e
+    return y, x, next_state
+
+
+# Start the thread upfront
+threads = []
+for _ in range(5):
+    thread = StoppableWorker(game_logic_thread, in_queue, out_queue)
+    thread.start()
+    threads.append(thread)
+```
+* Now, redefine the `simulate` function to interact with these queues. Adding item to `in_queue` is *fan-out* and emptying `out_queue` is *fan-in*.
+```python
+ALIVE = "*"
+EMPTY = "_"
+
+
+class SimulationError(Exception):
+    pass
+
+
+class Grid:
+    ...
+
+
+def count_neighbors(y, x, get):
+    ...
+
+
+def simulate_pipeline(grid, in_queue, out_queue):
+    for y in range(grid.height):
+        for x in range(grid.width):
+            state = grid.get(y, x)
+            neighbors = count_neighbors(y, x, grid.get)
+            in_queue.put((y, x, neighbors)) # Fan out
+
+    in_queue.join()
+    out_queue.join()
+
+    next_grid = Grid(grid.height, grid.width)
+    for item in out_queue:
+        y, x, next_state = item
+        if isinstance(next_state, Exception):
+            raise SimulationError(y, x) from next_state
+        next_grid.set(y, x, next_state)
+    
+    return next_grid
+```
+The call to `grid.get` and `grid.set` both happen in `simulate_pipeline` function, which mean we can use single threaded implementation of a `Grid` class.
+
+* This code is also easier to debug, because it will catch an exception in the `game_logic` function and raised in the main thread:
+```python
+def game_logic(state, neighbors):
+    raise OSError("Problem with I/O in game_logic")
+
+
+simulate_pipeline(Grid(1, 1), in_queue, out_queue)
+```
+    >>>
+
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
