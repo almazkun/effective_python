@@ -912,7 +912,7 @@ print(columns)
 
 THis approach is working great for running in one thread on one machine. But is the requirements were to change to make possible I/O in `game_logic` to make it online game, where the transition of state is dependant in grid state and the communication with the other players over the internet. 
 
-The simpliest approach would be to add blocking I/O directly to the `game_logic`:
+The simplest approach would be to add blocking I/O directly to the `game_logic`:
 ```python
 def game_logic(state, neighbors):
     ...
@@ -1145,10 +1145,10 @@ def simulate_pipeline(grid, in_queue, out_queue):
         for x in range(grid.width):
             state = grid.get(y, x)
             neighbors = count_neighbors(y, x, grid.get)
-            in_queue.put((y, x, neighbors)) # Fan out
+            in_queue.put((y, x, state, neighbors)) # Fan out
 
     in_queue.join()
-    out_queue.join()
+    out_queue.close()
 
     next_grid = Grid(grid.height, grid.width)
     for item in out_queue:
@@ -1170,6 +1170,81 @@ def game_logic(state, neighbors):
 simulate_pipeline(Grid(1, 1), in_queue, out_queue)
 ```
     >>>
+    Traceback (most recent call last)
+    OSError: Problem with I/O in game_logic
+    SimulationError: (0, 0)
+
+* We can drive this multithreaded pipeline by calling `simulate_pipeline` in a loop:
+```python
+class ColumnPrinter:
+    ...
+
+grid = Grid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+for i in range(5)
+    columns.append(str(grid))
+    grid = simulate_pipeline(grid, in_queue, out_queue)
+
+print(columns)
+
+for thread in threads:
+    in_queue.close()
+for thread in threads:
+    thread.join()
+```
+    >>>
+        0     |     1     |     2     |     3     |     4    
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
+THe result is the same, we solved the memory problem, but other problems remain:
+    - `simulated_pipeline` is even harder to follow than `simulated_threaded` approach.
+    - Extra support classes `ClosableQueue` and `StoppableWorker` add complexity.
+    - Have to specify number of threads upfront, instead of the system automatically scaling as needed.
+    - To catch an exception, you need to manually catch them in worker treads, and re-raise them in main thread.
+
+However, the biggest problem is apparent if we need to additional parallelism. For instance, in `count_neighbors` function:
+```python
+def count_neighbors(x, y, state):
+    # Some blocking I/O is here
+    data = my_socket.recv(100)
+```
+* In order to make it parallelizable we need to add another step to the pipeline that runs it in a thread. We need to make sure that exception will propagate to main thread and we need to use `Lock` in `Grid` to ensure correct synchronization between worker threads. 
+```python
+def count_neighbors_thread(item):
+    y, x, state, get = item
+    try:
+        neighbors = count_neighbors(y, x, get):
+    except Exception as e:
+        neighbors = e
+    return y, x, state, neighbors
+
+
+def game_logic_thread(item):
+    y, x, state, neighbors = item
+    if isinstance(neighbors, Exception):
+        next_state = neighbors
+    else:
+        try:
+            next_state = game_logic(state, neighbors)
+        except Exception as e:
+            next_state = e:
+    return y, x, next_state
+
+
+class = LockingGrid(Grid):
+    ...
+```
+* Also, we need to create new set of `Queue` instances for the `count_neighbors_thread` workers and the corresponding 
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
