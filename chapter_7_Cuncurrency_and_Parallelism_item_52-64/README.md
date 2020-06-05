@@ -1323,6 +1323,103 @@ for thread in threads:
 
 * This works, but requires a lot of change. `Queue` can solve fan out, fan in problems and better than `Threads` in this regards. But they are not ideal as other tools, like `ThreadPoolExecutor` form the next chapter.
 
+## Item 59: Consider `ThreadPoolExecutor` When Threads Are Necessary for Concurrency
+
+Python provides `concurrent.futures` built-in module, where we can find `ThreadPoolExecutor` class. THis class combines best parts of the `Thread` and `Queue` for solving blocking I/O parallelisation.
+```python
+ALIVE = "*"
+EMPTY = "_"
+
+class Grid:
+    ...
+
+
+class LockingGrid(Grid):
+    ...
+
+
+def count_neighbors(y, x, get):
+    ...
+
+
+def game_logic(state, neighbors):
+    ...
+    # Do some blocking input/output in here:
+    data = my_socket.recv(100)
+    ...
+
+
+def step_cell(y, x, get, set):
+    state = get(y, x)
+    neighbors = count_neighbors(y, x, get)
+    next_state = game_logic(state, neighbors)
+    set(y, x, next_state)
+```
+* Instead of starting a new `Thread` instance for each `Grid` square, we can fan out by pushing a function to an executor, whish will run in separate thread. Later, after all calculations we will fan in:
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+
+def simulate_pool(pool, grid):
+    next_grid = LockingGrid(grid.height, grid.width)
+
+    futures = []
+    for y in range(grid.height):
+        for x in range(grid.width):
+            args = (y, x, grid.get, next_grid.set)
+            future = pool.submit(step_cell, *args) # Fan out
+            futures.append(future)
+    
+    for future in futures:
+        future.result()                            # Fan in
+
+    return next_grid
+```
+The threads used for executor can be allocated in advance, the max amount of worker also can be specified with `max_workers` parameter:
+```python
+class ColumnPrinter:
+    ...
+
+
+grid = LockingGrid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+with ThreadPoolExecutor(max_workers=10) as pool:
+    for i in range(5):
+        columns.append(str(grid))
+        grid = simulate_pool(pool, grid)
+
+print(columns)
+```
+    >>>
+        0     |     1     |     2     |     3     |     4    
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
+* The best part of `ThreadPoolExecutor` is that Exception will propagate back to the caller:
+```python
+def game_logic(state, neighbors):
+    raise OSError('Problem with I/O')
+
+with ThreadPoolExecutor(max_workers=10) as pool:
+    task = pool.submit(game_logic, ALIVE, 3)
+    task.result()
+```
+    >>>
+    Traceback (most recent call last)
+      OSError: Problem with I/O
+
+* If will need to add other parallel I/Os no modification to the program will be needed, because it is already doing it in parallel in `step_cell` function.
+
+However, this can't be done for a bit amount of parallel threads. It won't scale to 10000+ parallel threads.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
