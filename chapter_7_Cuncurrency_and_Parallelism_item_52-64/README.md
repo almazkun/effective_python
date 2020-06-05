@@ -1223,7 +1223,7 @@ def count_neighbors(x, y, state):
 def count_neighbors_thread(item):
     y, x, state, get = item
     try:
-        neighbors = count_neighbors(y, x, get):
+        neighbors = count_neighbors(y, x, get)
     except Exception as e:
         neighbors = e
     return y, x, state, neighbors
@@ -1237,14 +1237,92 @@ def game_logic_thread(item):
         try:
             next_state = game_logic(state, neighbors)
         except Exception as e:
-            next_state = e:
+            next_state = e
     return y, x, next_state
 
 
 class = LockingGrid(Grid):
     ...
 ```
-* Also, we need to create new set of `Queue` instances for the `count_neighbors_thread` workers and the corresponding 
+* Also, we need to create new set of `Queue` instances for the `count_neighbors_thread` workers and the corresponding `Thread` instances:
+```python
+in_queue = ClosableQueue()
+logic_queue = ClosableQueue()
+out_queue = ClosableQueue()
+
+
+threads = []
+
+for _ in range(5):
+    thread = StoppableWorker(
+        count_neighbors_thread, in_queue, logic_queue)
+    thread.start()
+    threads.append(thread)
+
+
+for _ in range(5):
+    thread = StoppableWorker(
+        game_logic_thread, logic_queue, out_queue)
+    thread.start()
+    threads.append(thread)
+```
+* Finally, we need update `simulate_pipeline` to coordinate multiple phases in the pipeline and ensure that work fans out and back correctly:
+```python
+def simulate_phased_pipeline(
+        grid, in_queue, logic_queue, out_queue):
+    for y in range(grid.height):
+        for x in range(grid.width):
+            state = grid.get(y, x)
+            item = (y, x, state, grid.get)
+            in_queue.put(item) # Fan out
+    
+    in_queue.join()
+    logic_queue.join()
+    out_queue.close()
+
+    next_grid = LockingGrid(grid.height, grid.width)
+    for item in out_queue:
+        y, x, next_state = item
+        if isinstance(next_state, Exception):
+            raise SimulationError(y, x) from next_state
+        next_grid.set(y, x, next_state)
+    
+    return next_grid
+```
+Now it is possible to run multiple phase pipeline:
+```python
+grid = LockingGrid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+for i in range(5):
+    columns.append(str(grid))
+    grid = simulate_phased_pipeline(
+            grid, in_queue, logic_queue, out_queue)
+
+print(columns)
+
+for thread in threads:
+    in_queue.close()
+for thread in threads:
+    logic_queue.close()
+for thread in threads:
+    out_queue.join()
+```
+    >>>
+        0     |     1     |     2     |     3     |     4    
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | --*-*---- | ----*---- | ----*----
+    --***---- | ---**---- | ---**---- | --*-*---- | --*-*----
+    --------- | ---*----- | ---*----- | ---**---- | ---**----
+    --------- | --------- | --------- | --------- | ---------
+
+* This works, but requires a lot of change. `Queue` can solve fan out, fan in problems and better than `Threads` in this regards. But they are not ideal as other tools, like `ThreadPoolExecutor` form the next chapter.
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
