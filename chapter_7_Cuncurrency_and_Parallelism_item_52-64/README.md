@@ -1419,7 +1419,145 @@ with ThreadPoolExecutor(max_workers=10) as pool:
 
 * If will need to add other parallel I/Os no modification to the program will be needed, because it is already doing it in parallel in `step_cell` function.
 
-However, this can't be done for a bit amount of parallel threads. It won't scale to 10000+ parallel threads.
+However, this can't be done for a big amount of parallel threads. It won't scale to 10000+ parallel threads.
+
+# Achieve Highly Concurrent I/O with Coroutines 
+
+Python addresses the need of thousands concurrent I/Os with *coroutines*. Coroutines let you have a very large seemingly simultaneous functions in your Python program. They are implemented using `async` and `await` keywords along with the same infrastructure that powers generators. 
+
+THe cost of a coroutine is a function call. An active coroutine uses less than 1KB of memory until it exhausted. Like threads, coroutines are independent functions that can consume an input and produce resulting output. THe coroutines pause at each `await` and continues at `async` function after pending awaitable is resolved (similar to how `yield` behaves).
+
+Many separate `async` functions advanced in lockstep running simultaneously, mimicking the concurrent behavior of THreads. However the coroutines do it without memory overhead, startup and context switching costs, or complex locking and synchronization code that's required by Threads. The magic is done by the `event loop`, which can do highly concurrent I/Os efficiently.
+
+* We can implement the coroutines in the Game of Life starting with `game_logic` function:
+```python
+ALIVE = "*"
+EMPTY = "_"
+
+class Grid:
+    ...
+
+
+class LockingGrid(Grid):
+    ...
+
+
+def count_neighbors(y, x, get):
+    ...
+
+
+async def game_logic(state, neighbors):
+    ...
+    # Do some blocking input/output in here:
+    data = await my_socket.recv(100)
+```
+* Similarly, we turn `step_cell`function into coroutine:
+```python
+async def step_cell(y, x, get, set):
+    state = get(y, x)
+    neighbors = count_neighbors(y, x, get)
+    next_state = await game_logic(state, neighbors)
+    set(y, x, next_state)
+```
+* Also, `simulate` function is also needs to be a coroutine:
+```python
+import asyncio
+
+
+async def simulate(grid):
+    next_grid = Grid(grid.height, grid.width)
+
+    tasks = []
+    for y in range(grid.height):
+        for x in range(grid.width):
+            task = step_cell(
+                y, x, grid.set, next_grid.set)  # Fan out
+            tasks.append(task)
+        
+    await asyncio.gather(*tasks)                # Fan in
+
+    return next_grid
+```
+* Calling `step_cell` doesn't immediately run a function. Instead, it returns a coroutine instance that can be used with `await` expression later in time. This is similar to the `yield` returning a generator instance instead executing immediately. Deferring execution like this cause *fan-out*.
+* The `gather` function from `asyncio` built-in cases *fan-in*. The `await` expression on `gather` instructs the event loop to run `step_cell` coroutines concurrently and resume execution of the `simulate` coroutine when all of them have been completed.
+* No locks are required for the `Grid` instance since all executions occurs within a single thread. The I/O becomes parallelized as part of the event loop that's provided by `asyncio`. 
+
+* Finally, we can run our code:
+```python
+grid = Grid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+
+for i in range(5):
+    columns.append(str(grid))
+    grid = asyncio.run(simulate(grid))
+
+print(columns)
+```
+    >>>
+        0     |     1     |     2     |     3     |     4
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
+* the debugging is also possible by simply raising an exception:
+```python
+async def game_logic(state, neighbors):
+    ...
+    raise OSError("Problem with I/O")
+    ...
+
+asyncio.run(game_logic(ALIVE, 3))
+```
+    >>>
+    Traceback ...
+    OSError: Problem with I/O
+
+* it is also easy to add more concurrency. To make `count_neighbors` coroutine, for instance, minimal change to code is needed:
+```python
+async def count_neighbors(y, x, get):
+    ...
+
+
+async def step_cell(y, x, get, set):
+    state = get(y, x)
+    neighbors = await count_neighbors(y, x, get)
+    next_state = await game_logic(state, neighbors)
+    set(y, x, next_state)
+
+
+grid = Grid(5, 9)
+grid.set(0, 3, ALIVE)
+grid.set(1, 4, ALIVE)
+grid.set(2, 2, ALIVE)
+grid.set(2, 3, ALIVE)
+grid.set(2, 4, ALIVE)
+
+columns = ColumnPrinter()
+
+for i in range(5):
+    columns.append(str(grid))
+    grid = asyncio.run(simulate(grid))
+
+print(columns)
+```
+    >>>
+        0     |     1     |     2     |     3     |     4
+    ---*----- | --------- | --------- | --------- | ---------
+    ----*---- | --*-*---- | ----*---- | ---*----- | ----*----
+    --***---- | ---**---- | --*-*---- | ----**--- | -----*---
+    --------- | ---*----- | ---**---- | ---**---- | ---***---
+    --------- | --------- | --------- | --------- | ---------
+
+The beauty of coroutines is that they decouple your code's instructions for the external environment from the implementation that carries out your wishes. THey let you focus on the logic of what you are trying to do instead of wasting your time trying to figure out how to do it concurrently.
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
