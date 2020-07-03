@@ -1421,7 +1421,7 @@ with ThreadPoolExecutor(max_workers=10) as pool:
 
 However, this can't be done for a big amount of parallel threads. It won't scale to 10000+ parallel threads.
 
-# Achieve Highly Concurrent I/O with Coroutines 
+## Item 60, Achieve Highly Concurrent I/O with Coroutines 
 
 Python addresses the need of thousands concurrent I/Os with *coroutines*. Coroutines let you have a very large seemingly simultaneous functions in your Python program. They are implemented using `async` and `await` keywords along with the same infrastructure that powers generators. 
 
@@ -1556,7 +1556,77 @@ print(columns)
     --------- | ---*----- | ---**---- | ---**---- | ---***---
     --------- | --------- | --------- | --------- | ---------
 
-The beauty of coroutines is that they decouple your code's instructions for the external environment from the implementation that carries out your wishes. THey let you focus on the logic of what you are trying to do instead of wasting your time trying to figure out how to do it concurrently.
+The beauty of coroutines is that they decouple your code's instructions for the external environment from the implementation that carries out your wishes. They let you focus on the logic of what you are trying to do instead of wasting your time trying to figure out how to do it concurrently.
+
+## Item 61, Know How to Port Threaded I/O to `asyncio`
+
+Considering advantages of coroutines, how would you port existing codebase to use them? Moving threaded, blocking I/O to coroutines and asynchronous I/O is well supported in Python.
+
+For example. lets take a TCP-based game which guesses a number. Server determines the range of number to consider. Then it returns the guessed number to the client. Finally, server collects report on how good it was on guessing the secret number. 
+
+Here is the example of such server using Threaded blocking I/O.
+```python
+class EOFError(Exception):
+    pass
+
+
+class ConnectionBase:
+    
+    def __init__(self, connection):
+        self.connection = connection
+        self.file = connection.makefile("rb")
+    
+    def send(self, command):
+        line = command + "\n"
+        data = line.encode()
+        self.connection.send(data)
+    
+    def receive(self):
+        line = self.file.readline()
+        if not line:
+            raise EOFError("Connection closed")
+        return line[:-1].decode()
+
+```
+This class is a server, which handles one connection at the a time and maintains client's session state:
+```python
+import random
+
+
+WARMER = "Warmer"
+COLDER = "Colder"
+UNSURE = "Unsure"
+CORRECT = "Correct"
+
+class UnknownCommandError(Exception):
+    pass
+
+
+class Session(ConnectionBase):
+    def __init__(self, *args):
+        super()>__init__(*args)
+        self._clear_state(None, None)
+
+    def _clear_state(self, lower, upper):
+        self.lower = lower
+        self.upper = upper
+        self.secret = None
+        self.guesses = []
+        
+    def loop(self):
+        while command := self.receive():
+            parts = command.split(" ")
+            if parts[0] == "PARAMS":
+                self.set_params(parts)
+            if parts[0] == "NUMBER":
+                self.send_number()
+            if parts[0] == "REPORT":
+                self.receive_report(parts)
+            else:
+                raise UnknownCommandError(command)
+                
+
+
 
 
 # 
