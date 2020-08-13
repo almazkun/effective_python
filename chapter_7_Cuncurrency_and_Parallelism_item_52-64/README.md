@@ -1614,9 +1614,9 @@ class Session(ConnectionBase):
             parts = command.split(" ")
             if parts[0] == "PARAMS":
                 self.set_params(parts)
-            if parts[0] == "NUMBER":
+            elif parts[0] == "NUMBER":
                 self.send_number()
-            if parts[0] == "REPORT":
+            elif parts[0] == "REPORT":
                 self.receive_report(parts)
             else:
                 raise UnknownCommandError(command)
@@ -1672,7 +1672,7 @@ class Client(ConnectionBase):
         for _ in range(count):
             self.send("NUMBER")
             data = self.receive()
-            yield int(date)
+            yield int(data)
             if self.last_distance == 0:
                 return
     def report_outcome(self, number):
@@ -1706,6 +1706,7 @@ def handle_connection(connection):
 
 def run_server(address):
     with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(address)
         listener.listen()
         while True:
@@ -1743,7 +1744,41 @@ def main():
 
 main()
 ```
+    >>>
+    Guess an number between 1 and 5!Shhhhh, it's a 3.
+    Server: 5 is Unsure
+    Server: 1 is Unsure
+    Server: 3 is Correct
+    Guess an number between 10 and 15!Shhhhh, it's a 12.
+    Client: 5 is Unsure
+    Client: 1 is Unsure
+    Client: 3 is Correct
+    Client: 12 is Correct
+    Server: 12 is Correct
+* Now, we want to convert it to `async, await`.
 
+First, we will need to change our `ConnectionBase` class to provide coroutines to `send` and `receive` instead of blocking I/O.
+```python
+class AsyncConnectionBase:
+    def __init__(self, reader, writer):
+        self.reader = reader
+        self.writer = writer
+    
+    async def send(self, command):
+        line = command + "\n"
+        date = line.encode()
+        self.writer.write(data)
+        await self.writer.drain()
+    
+    async def receive(self):
+        line = await self.reader.readline()
+        if not line:
+            raise EOFError("Connection closed")
+        return line[:-1].decode()
+```
+For the class representing state of a single connection we will only change the name of it and inheriting from new `Base`:
+```python
+```
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
