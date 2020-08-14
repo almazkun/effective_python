@@ -1644,7 +1644,7 @@ class Session(ConnectionBase):
             self.secret = last
         print(f"Server: {last} is {decision}")
 ```
-* The client is implimented using a statful class:
+* The client is implemented using a stateful class:
 ```python
 import contextlib
 import math
@@ -1659,8 +1659,8 @@ class Client(ConnectionBase):
         self.last_distance = None
     @contextlib.contextmanager
     def session(self, lower, upper, secret):
-        print(f"Guess an number between {lower} and {upper}!"
-              f"Shhhhh, it\'s a {secret}.")
+        print(f"Guess a number between {lower} and {upper}!"
+              f"Shhhhh, it\'s {secret}.")
         self.secret = secret
         self.send(f"PARAMS {lower} {upper}")
         try:
@@ -1778,7 +1778,76 @@ class AsyncConnectionBase:
 ```
 For the class representing state of a single connection we will only change the name of it and inheriting from new `Base`:
 ```python
+class AsyncClient(AsyncConnectionBase):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._clear_state(None, None)
+    
+    def _clear_state(self):
+        ...
 ```
+* The primary method of the server interactions require only minimal changes:
+```python
+    async def loop(self):
+        while command := await self.receive():
+            parts = command.split(" ")
+            if parts[0] == "PARAMS":
+                self.set_params(parts)
+            elif parts[0] == "NUMBER"
+                await self.send_number()
+            elif parts[0] == "REPORT"
+                self.receive_report(parts)
+            else:
+                raise UnknownCommandError(command)
+```
+* No changes are required for the first command:
+```python
+    def set_params(self, parts):
+    ...
+```
+* Only adding `async` is required for the second command:
+```python
+    async def send_number(self):
+        guess = self.next_guess()
+        self.guesses.append(guess)
+        await self.send(format(guess))
+```
+* No changes needed for the third command. But Client class need to inherit from ne Base.
+```python
+class AsyncClient(AsyncConnectionBase):
+    def __init__(self, *args):
+        ...
+    def _clear_state(self):
+        ...
+```
+* The first method need to be changed and contextlib to async similarly
+```python
+    @contextlib.asynccontextmanager
+    async def session(self, lower, upper, secret):
+        print(f"Guess a number between {lower} and {upper}!"
+              f"Shhhhh, it\'s {secret}.")
+        self.secret = secret
+        await self.send(f"PARAMS {lower} {upper}")
+        try:
+            yield
+        finally:
+        self._clear_state()
+        await self.send("PARAMS 0 -1")
+```
+* The second command requires same changes:
+```python
+    async def request_number(self, number):
+        for _ in range(number):
+            await self.send("NUMBER")
+            data = self.receive()
+            yield int(data)
+            if self.last_distance == 0:
+                return
+    
+
+
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
