@@ -1843,10 +1843,90 @@ class AsyncClient(AsyncConnectionBase):
             yield int(data)
             if self.last_distance == 0:
                 return
+```
+* The third command requires adding `async` and `await` keywords:
+```python
+    async def report_outcome(self, number):
+        ...
+        await self.send(f"REPORT {decision}")
+        ...
+```
+* The server needs to be completely rewritten to use `asyncio` built-in module and its `start_server` function:
+```python
+import asyncio
+
+
+async def handle_async_connection(reader, writer):
+    session = AsyncSession(reader, writer)
+    try:
+        await session.loop()
+    except: EOFError:
+        pass
+
+async def run_async_server(address):
+    server = await asyncio.start_server(
+        handle_async_connection, *address)
+    async with server:
+        await server.serve_forever()
+```
+* the `client_run` function needs to be almost completely rewritten:
+```python
+async def run_async_client(address):
+    streams = await asyncio.open_connection(*address)
+    client = AsyncClient(*streams)
+
+    async with client.session(1, 5, 3):
+        results = [(x, await client.report_outcome(x))
+                    async for x in client.request_numbers(5)]
     
+    async with client.session(10, 15, 12):
+        async for number in client.request_number(5)
+            outcome = await client.report_outcome(number)
+            results.append((number, outcome))
+    
+    _, writer = streams
+    writer.close()
+    await writer.wait_closed()
+    
+    return results
+```
+* Finally, the glue needs to be updated to run this code end-to-end:
+```python
+async def main_async():
+    address = ("127.0.0.1", 1234)
 
+    server = run_async_server(address)
+    asyncio.create_task(server)
 
+    results = await run_async_client(address)
+    for number, outcome in results:
+        print(f"Client: {number} is {outcome}")
 
+asyncio.run(main_async())
+```
+    >>>
+    Guess a number between 1 and 5! Shhhhh, it's 3.
+    Server: 5 is Unsure
+    Server: 4 is Warmer
+    Server: 2 is Unsure
+    Server: 1 is Colder
+    Server: 3 is Correct
+    Guess a number between 10 and 15! Shhhhh, it's 12.
+    Server: 14 is Unsure
+    Server: 10 is Unsure
+    Server: 15 is Colder
+    Server: 12 is Correct
+    Client: 5 is Unsure
+    Client: 4 is Warmer
+    Client: 2 is Unsure
+    Client: 1 is Colder
+    Client: 3 is Correct
+    Client: 14 is Unsure
+    Client: 10 is Unsure
+    Client: 15 is Colder
+    Client: 12 is Correct
+
+This works as expected. But not all the cases can be easily ported to the coroutines. Check the docs for more information about `asyncio` built-in module to unleash full power of coroutines in your code.
 
 
 # 
