@@ -1928,6 +1928,87 @@ asyncio.run(main_async())
 
 This works as expected. But not all the cases can be easily ported to the coroutines. Check the docs for more information about `asyncio` built-in module to unleash full power of coroutines in your code.
 
+## Item 62, Mix Threads and Coroutines to Ease the Transition to `asyncio`
+
+In previous example we moved from Threads to Coroutines in on jump. It might not be possible in real world, where you probably will need to gradually move from one to another, updating tests along the way to check that everything works as expected.
+
+In order to do that you will need to use Threads for blocking I/O and coroutines for async I/O at the same time. This means that threads need to run coroutines and coroutines need to start and wait for threads. Luckily, `acyncio` build-in has a valid options for that.
+
+For example, we want to merge all the log files into one big file, for debugging. We need a way to detect if the new information is available in the log file. We can use `tell` method from the file handle to check if the current read position matches the length of the file. When now data is there, an exception is raised.
+
+```python
+class NoNewData(Exception):
+    pass
+
+
+def readline(handle):
+    offset = handle.tell()
+    handle.seek(0, 2)
+    length = handle.tell()
+
+    if length == offset:
+        raise NoNewData
+    
+    handle.seek(offset, 0)
+    return handle.readline()
+```
+
+By wrapping the function in a while loop, we can turn it into a worker thread. When new data is available, the given function will write it to the output log. When new date is not available, the threads sleeps. When the input file handle is closed, the worker thread exits. 
+```python
+import time
+
+
+def tail_file(handle, interval, write_func):
+    while not handle.closed:
+        try:
+            line = readline(handle)
+        except NoNewData:
+            time.sleep(intervale)
+        else:
+            write_func(line)
+```
+
+Now, we can start one worker thread per input file and unify their input into a single output file. The `write` function needs to use a `Lock` instance to ensure that there no intra-line conflicts:
+```python
+from threading import Lock, Thread
+
+
+def run_threads(handles, interval, output_path):
+    with open(output_path, "wb") as output:
+        lock = Lock()
+        def write(date):
+            with Lock:
+                output.write(date)
+
+        threads = []
+        for handle in handles:
+            args = (handle, interval, write)
+            thread =Thread(target=tail_file, args=args)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+```
+As long as an input file handle is still alive, its corresponding worker thread will also stay alive. The `join` of all threads will mean the and of the whole process.
+
+Given a set of the input_paths and an output_path, we can call run_threads and confirm that it works as expected. We only need next:
+```python
+def confirm_merge(input_paths, output_path):
+    ...
+
+input_paths = ...
+handles = ...
+output_paths = ...
+run_threads(handles, 0.1, output_path)
+
+confirm_merge(input_paths, output_path)
+```
+To incrementally change current codebase we can one on the two approaches: top-down or bottom-down.
+
+Top-down mean: starting at the highest parts of a codebase, like starting in the `main` entry point and working down to the individual functions and classes. This approach is usefull when you have a lot of common modules that are used across many different programs.
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
