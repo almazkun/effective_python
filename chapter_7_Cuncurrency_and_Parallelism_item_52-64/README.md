@@ -2006,9 +2006,127 @@ confirm_merge(input_paths, output_path)
 ```
 To incrementally change current codebase we can one on the two approaches: top-down or bottom-down.
 
-Top-down mean: starting at the highest parts of a codebase, like starting in the `main` entry point and working down to the individual functions and classes. This approach is usefull when you have a lot of common modules that are used across many different programs.
+## Top-down
 
+Top-down means: starting at the highest parts of a codebase, like starting in the `main` entry point and working down to the individual functions and classes. This approach is useful when you have a lot of common modules that are used across many different programs.
 
+Concrete steps are:
+1. Change top function to use async def instead of def.
+2. Wrap all of its calls that do I/O blocking to use asyncio.run_in_executor instead.
+3. Ensure that the resources or callbacks used by run_in_executor invocations are properly synchronized (i.e. using `Lock` or `asyncio.run_coroutine_threadsafe` function).
+4. Try to eliminate `get_event_loop` and `run_in_executor` calls by moving to converting intermediate functions and methods to coroutines. 
+
+Here is `run_threads` function rethink:
+```python
+import asyncio
+
+async def run_tasks_mixed(handlers, interval, output_path):
+    loop = asyncio.get_event_loop()
+
+    with open(output_path, "wb") as output:
+        async def write_async(data):
+            output.write(data)
+
+        def write(data):
+            coro = write_async(data)
+            future = asyncio.run_coroutines_threadsafe(
+                coro, loop
+            )
+            fututre.results()
+
+        tasks = []
+        for handle in handles:
+            task = loop.run_in_executor(
+                None, tail_file, handle, interval, write)
+            tasks.append(task)
+
+        await asyncio.gather(*tasks)
+```
+The `run_in_executor` method instructs the event loop to run a given function using specific `ThreadPollExecutor` or a default executor instance when the first parameter is `None`. By making multiple call to `run_executor` without corresponding await expressions, the `run_tasks_mixed` coroutine fans out to have one concurrent line of execution for each input file. Then, the `async.gather` function along with `await`expression fans in the `tail_file` threads until they all complete.
+
+This code eliminates the need of the `Lock` instance in the `write` helper by using `asyncio.run_coroutines_threadsafe`. This function allows plain old worked threads to call a coroutine - `write_async` - and have it executed in the event loop from the main thread. This effectively synchronizes the threads together and ensures that all writes to the output file are only done by the event loop in the main thread. Once the `asyncio.gather` awaitable is resolved, we can assume that all writes to the file have also completed, and thus the output file can be closed in the `with` statement without worries about race conditions. 
+
+We can verify that the code works with `asyncio.run` function starting coroutines and running the main event loop:
+```python
+input_paths = ...
+handles = ...
+output_path = ...
+asyncio.run(run_tasks_mixed(handles, 0.1, output_path))
+
+confirm_merge(input_path, output_path)
+```
+Noe we can apply step 4 to the `run_tasks_mixed` function by moving down the call stack.We can redefine the `tail_file` to be a coroutine instead of being a blocking I/O:
+```python
+async def tail_async(handle, interval, write_func):
+    loop = asyncio.get_event_loop()
+
+    while not handle.close:
+        try:
+            line = await loop.run_in_executor(
+                None, readline, handle
+            )
+        except NoNewData:
+            await asyncio.sleep(interval)
+        else:
+            await write_func(line)
+```
+This new implementation of `tail_async` allows me to push calls to `get_event_loop` and `run_in_executor` down the stack and out of the `run_tasks_mixed` entirely. What's left is clean and much easier to follow:
+```python
+async def run_tasks_(handles, interval, output_path):
+    with open(output_path, "wb") as output:
+        async def write_async(date):
+            output.write(date)
+        tasks = []
+        for handle in handles:
+            coro = tail_async(handle, interval, write_async)
+            task = asyncio.create_task(coro)
+            tasks.append(task)
+        await asyncio.gather(*tasks)
+```
+To verify that it works:
+```python
+input_path = ...
+handles = ...
+output_path = ...
+asyncio.run(run_tasks(handles, 0.1, output_path))
+
+confirm_merge(input_path, output_path)
+```
+It is possible to continue ti refactor and convert `readline` into coroutine as well, but that function requires so many blocking file I/O operations that it doesn't seem worth porting. In sime situations, it make sense to move everything to asyncio, and in others it doesn't.
+
+## Bottom-up
+The bottom-up approach to adopting coroutines has four steps as well, but in reverse direction: from leaves to entry points.
+
+The concrete steps:
+1. Create a new asynchronous coroutine version of each leaf function that you're trying to port. 
+2. Change the existing synchronous functions so they call the coroutine version and run the event loop instead of implementing any real behavior.
+3. Move up a level in the hierarchy, convert to next level of coroutines, and replace existing class to synchronous functions with calls to the coroutines defined in step 1. 
+4. Delete synchronous wrappers around coroutines created in step 2 as you stop requiring them to glue the pieces together.
+
+In oyt example we start with `tail_file` function. We rewrite it so it merely wraps the `tail_async` coroutine that we defined above. To run that coroutine until it finished, we need to created an event loop for each `tail_file` worker thread and then call `run_until_completed` method. This method will block the current thread and drive the event loop until the `tail_async` coroutine exits, achieving the same result as the threaded, blocking I/O version of the `tail_file`:
+```python
+def tail_file(handle, interval, write_func):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def write_async(data):
+        write_func(data)
+    
+    coro = tail_async(handle, interval, write_async)
+    loop.run_until_complete(coro)
+```
+To verify that it works:
+```python
+input_path = ...
+handles = ...
+output_path = ...
+run_threads(run_tasks(handles, 0.1, output_path))
+
+confirm_merge(input_path, output_path)
+```
+After wrapping `tail_async` with `tail_file`, the next step is to convert the `run_threads` function to a coroutine. This step ends up being the same work as a step 4 in the top-down approach.
+
+We will continue to explore the `asyncio` module.
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
