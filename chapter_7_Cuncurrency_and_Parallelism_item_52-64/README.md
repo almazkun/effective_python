@@ -2128,9 +2128,127 @@ After wrapping `tail_async` with `tail_file`, the next step is to convert the `r
 
 We will continue to explore the `asyncio` module.
 
-## Item 63: Consider `concurrent.futures` for True Parallelism
+## Item 63: Avoid Blocking the `asyncio` Event Loop to Maximize Responsiveness 
+
+In or way to migrate to `asyncio` incrementally, even thought it is correctly tails inputs and merges items into single output:
+
+```python
+import asyncio
 
 
+async def run_tasks(handles, interval, output_path):
+    with open(output_path, "w") as output:
+        async def write_async(data):
+            output.write(date)
+
+        tasks = []
+        for handle in handles:
+            coro = tail_async(handle, interval, write_async)
+            task = asyncio.create_task(coro)
+            tasks.append(task)
+
+        await asyncio.gather(*tasks)
+```
+It is, however still has a big problem: The `open`, `close` and `write` calls for the output file handle happen in the main even loop. This calls may block the even loop for significant amounts of time and prevent other coroutines from making progress. This may heart overall responsiveness of the high load system.
+
+We can pass `debug=True` to the `asyncio.run` to detect when this problem occurs:
+```python
+import time
+
+async def slow_coroutine():
+    time.sleep(0.5)
+
+asyncio.run(slow_coroutine(), debug=True)
+```
+```bash
+Executing <Task finished name='Task-1' coro=<slow_coroutine()
+done, defined at <stdin>:1> result=None created
+at /.../asyncio/base_events.py:595> took 0.503 seconds
+``` 
+In order to make the most responsive program possible, we need to minimize the potential system calls made from within event loop. In this case we can use `Thread` subclass to use its own event loop:
+```python
+from threading import Thread
+
+
+class WriteThread(Thread):
+    def __init__(self, output_path):
+        super().__init__()
+        self.output_path = output_path
+        self.output = None
+        self.loop = asyncio.new_event_loop()
+
+    def run(self):
+        asyncio.set_event_loop(self.loop)
+        with open(self.output_path, "wb") as self.output:
+            self.loop.run_forever()
+        
+        # Run one final round of callbacks so the await on
+        # stop() in another even loop will be resolved.
+        self.loop.run_until_complete(asyncio.sleep(0))
+```
+Coroutines in another threads can directly call the  and `await` on the `write` method of this class, because it is a thread-safe wrapper around `real_write` method that does the I/O. By this we eliminate the need of the `Lock`.
+```python
+    async def real_writer(self, data):
+        self.output.write(data)
+
+    async def write(self, data):
+        coro = self.real_writer(data)
+        future = asyncio.run_coroutines_threadsafe(
+            coro, self.loop
+        )
+        await asyncio.wrap_future(future)
+```
+Other coroutines can tell the worker thread when to stop in a threadsafe manner similarly:
+```python
+    async def real_stop(self):
+        self.loop.stop()
+    async def stop(self):
+        coro = self.real_stop()
+        future = asyncio.run_coroutines_threadsafe(
+            core, self.loop
+        )
+        await asyncio.wrap_future(future)
+```
+We can also define the `__aenter__` and `__aexit__` methods to allow this class to be used in `with` statement. This will ensure that the worker thread starts and stops at the right time without slowwing down the main even loop thread:
+```python
+    async def __aenter__(self):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.start)
+        return self
+
+    async def __aexit__(self, *_):
+        await self.stop()
+```
+With this new `WriteThread` we can refactor `run_tasks` into fully asynchronous version that's easy to read and completely avoids running slow system call in the main even loop:
+```python
+def readline(handler):
+    ...
+
+async def tail_async(handle, interval, write_func):
+    ...
+
+async def run_fully_async(handles, interval, output_path):
+    async with TreadWriter(output_path) as output:
+        tasks = []
+        for handle in handles:
+            coro = tail_async(handle, interval, output_path)
+            task = asyncio.create_task(coro)
+            tasks.append(task)
+
+        await asyncio.gather(*tasks)
+``` 
+We can verify that it works, given set of input handles and an output file path:
+```python
+def confirm_merge(input_path, output_path):
+    ...
+
+input_path = ...
+handles = ...
+output_path = ...
+asyncio.run(run_fully_async(handles, 0.1, output_path))
+
+confirm_merge(input_path, output_path)
+```
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
