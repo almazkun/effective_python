@@ -761,7 +761,7 @@ print(done_queue.qsize(), "items finished")
 `Queue` class is great for building robust pipelines.
 
 
-## Item 56:Know How to Recognize When Concurrency is Necessary
+## Item 56: Know How to Recognize When Concurrency is Necessary
 Here is an implementation of the Conway's Game of Life, a finite state automata illustration. THe rules a explained below. It start with 2-dimensional grid, of arbitrary size, with cells either Alive ` * ` or Dead ` - `. Based of the state of the neighboring sells on each turn each cell decides if its Alive, Dead or should regenerate. 
 * This is the representation of the game 5*5 grid after 4 generations:
 
@@ -1421,7 +1421,7 @@ with ThreadPoolExecutor(max_workers=10) as pool:
 
 However, this can't be done for a big amount of parallel threads. It won't scale to 10000+ parallel threads.
 
-## Item 60, Achieve Highly Concurrent I/O with Coroutines 
+## Item 60: Achieve Highly Concurrent I/O with Coroutines 
 
 Python addresses the need of thousands concurrent I/Os with *coroutines*. Coroutines let you have a very large seemingly simultaneous functions in your Python program. They are implemented using `async` and `await` keywords along with the same infrastructure that powers generators. 
 
@@ -1558,7 +1558,7 @@ print(columns)
 
 The beauty of coroutines is that they decouple your code's instructions for the external environment from the implementation that carries out your wishes. They let you focus on the logic of what you are trying to do instead of wasting your time trying to figure out how to do it concurrently.
 
-## Item 61, Know How to Port Threaded I/O to `asyncio`
+## Item 61: Know How to Port Threaded I/O to `asyncio`
 
 Considering advantages of coroutines, how would you port existing codebase to use them? Moving threaded, blocking I/O to coroutines and asynchronous I/O is well supported in Python.
 
@@ -1928,7 +1928,7 @@ asyncio.run(main_async())
 
 This works as expected. But not all the cases can be easily ported to the coroutines. Check the docs for more information about `asyncio` built-in module to unleash full power of coroutines in your code.
 
-## Item 62, Mix Threads and Coroutines to Ease the Transition to `asyncio`
+## Item 62: Mix Threads and Coroutines to Ease the Transition to `asyncio`
 
 In previous example we moved from Threads to Coroutines in on jump. It might not be possible in real world, where you probably will need to gradually move from one to another, updating tests along the way to check that everything works as expected.
 
@@ -2127,6 +2127,10 @@ confirm_merge(input_path, output_path)
 After wrapping `tail_async` with `tail_file`, the next step is to convert the `run_threads` function to a coroutine. This step ends up being the same work as a step 4 in the top-down approach.
 
 We will continue to explore the `asyncio` module.
+
+## Item 63: Consider `concurrent.futures` for True Parallelism
+
+
 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
