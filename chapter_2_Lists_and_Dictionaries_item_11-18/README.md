@@ -589,8 +589,8 @@ class Visits:
 
 
 visits = Visits()
-visits.add('England', 'Bath')
-visits.add("England", "London)
+visits.add("England", "Bath")
+visits.add("England", "London")
 print(visits.data)
 ```
     >>>
