@@ -505,13 +505,13 @@ names.append(who)
 * Similarly, with the `get` method:
 ```python
 names = votes.get[key]
-if name in None:
+if name is None:
     votes[key] = names = []
 ```
 
 * it can be made even shorter if new assignment operator is used:
 ```python
-if (names := votes.get(key)) in None:
+if (names := votes.get(key)) is None:
     votes[key] = names = []
 ```
 
