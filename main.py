@@ -1,52 +1,36 @@
-class NoNewData(Exception):
-    pass
+from time import time
+from concurrent.futures import ProcessPoolExecutor
+
+def gcd(pair):
+    a, b = pair
+    low = min(a, b)
+    for i in range(low, 0, -1):
+        if a % i == 0 and b % i == 0:
+            return i
+    assert False, "Not reachable"
 
 
-def readline(handle):
-    offset = handle.tell()
-    handle.seek(0, 2)
-    length = handle.tell()
-    
-    if length == offset:
-        raise NoNewData
-    
-    handle.seek(offset, 0)
-    return handle.readline()
-
-
-import time
-
-
-def tail_file(handle, interval, write_func):
-    while not handle.closed:
-        try:
-            line = readline(handle)
-        except NoNewData:
-            time.sleep(intervale)
-        else:
-            write_func(line)
-
-
-from threading import Lock, Thread
-
-
-def run_threads(handles, interval, output_path):
-    with open(output_path, "wb") as output:
-        lock = Lock()
-        def write(date):
-            with Lock:
-                output.write(date)
-
-        threads = []
-        for handle in handles:
-            args = (handle, interval, write)
-            thread =Thread(target=tail_file, args=args)
-            thread.start()
-            threads.append(thread)
-
-        for thread in threads:
-            thread.join()
-
+NUMBERS = [
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+]
 
 if __name__ == "__main__":
-    print("hello world")
+    s = time()
+    pool = ProcessPoolExecutor(max_workers=10)
+    results = list(pool.map(gcd, NUMBERS))
+    delta = time() - s
+    print(f'Took {delta:.3f} seconds')

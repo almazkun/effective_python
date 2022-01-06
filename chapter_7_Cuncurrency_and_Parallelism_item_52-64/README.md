@@ -2250,5 +2250,107 @@ asyncio.run(run_fully_async(handles, 0.1, output_path))
 confirm_merge(input_path, output_path)
 ```
 
+## Item 64: Consider `concurrent.futures` for true Parallelism
+At some point you program might hit the wall of optimization. And Only thing you can optimize it split you program to tun in parallel to utilize multiple CPU cores.
+
+But GIL will prevent you doing so and C extensions might be used to do it. However moving to the C-level is not all rosy and easy. Often to have a sensitive increase in performance one need to rewrite big part of the program in C. Which will increase the complexity, likelihood of bugs and increase the maintenance burden. There are some libraries which can help to do it. 
+
+But before you went to the C-level, it is worth to consider the `concurrent.futures` module. It is a library that provides a high level of parallelism and is easy to use.
+
+For example, we need to do something computationally intensive:
+```py
+def  gcp(pair):
+    a, b = pair
+    low = min(a, b)
+    for i in range(low, 0, -1):
+        if a % i == 0 and b % i == 0:
+            return i
+    assert False, "Not reachable"
+```
+Running it in serial will take a long time:
+```py
+import time
+
+NUMBERS = [
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+    (1963309, 2265973), (2030677, 3814172),
+    (1551645, 2229620), (2039045, 2020802),
+    (1823712, 1924928), (2293129, 1020491),
+    (1281238, 2273782), (3823812, 4237281),
+    (3812741, 4729139), (1292391, 2123811),
+]
+
+if __name__ == "__main__":
+    s = time()
+    results = list(map(gcd, NUMBERS))
+    delta = time() - s
+    print(f'Took {delta:.3f} seconds')
+```
+
+    >>>
+    Took 3.909 seconds
+
+Running this in multiple threads will not make an improvement, even with `concurrent.futures` and `ThreadPoolExecutor`:
+```py
+from concurrent.futures import ThreadPoolExecutor
+
+...
+
+if __name__ == "__main__":
+    s = time()
+    pool = ThreadPoolExecutor(max_workers=10)
+    results = list(pool.map(gcd, NUMBERS))
+    delta = time() - s
+    print(f'Took {delta:.3f} seconds')
+```
+    >>>
+    Took 3.783 seconds
+
+Now the surprising two lines change to `ProcessPoolExecutor`:
+```py
+from concurrent.futures import ProcessPoolExecutor
+
+...
+
+if __name__ == "__main__":
+    s = time()
+    pool = ProcessPoolExecutor(max_workers=10)
+    results = list(pool.map(gcd, NUMBERS))
+    delta = time() - s
+    print(f'Took {delta:.3f} seconds')
+```
+    >>>
+    Took 1.375 seconds
+
+How is it possible? One may cry. Here what is `ProcessPoolExecutor` does:
+1. It takes each number pair and maps it to the `gcd` function.
+2. It serializes the item into binary format with `pickle`.
+3. It copies the binary data from main interpreter process to a child process over the local socket.
+4. It deserializes the binary data using `pickle` into the Python object in the child process.
+5. It imports the `gcd` function.
+6. It runs the function and the input data in parallel with other child processes.
+7. It serializes the result back into binary data.
+8. It copies the binary data back to the main interpreter process.
+9. It deserializes the binary data into the Python object.
+10. It merges the results into the single `list` to return.
+
+However the overhead is high, due to the serialization and deserialization between the main and child processes.
+
+This will improve the performance for certain types of isolated and high-leverage tasks. By *isolated* it means that tasks that don't need to share data between other parts of the program. By *high-leverage* it means that small amount of data needs to be transferred for large amount of computation to happen. 
+
+For other types of the tasks the `multiprocessing` overhead might prevent significant performance gains. When this happens, `multiprocessing` provides move advanced functionality for shared memory, cross-process locks, queues and proxies. But all of these features very complex.
+
+So it is generally suggested to initially avoid using `multiprocessing` directly and start with `TheadPoolExecutor` and `ProcessPoolExecutor` instead. Only after all the means are exhausted, one should start using `multiprocessing` directly.
+
 # 
+
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
