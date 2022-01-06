@@ -1174,7 +1174,7 @@ simulate_pipeline(Grid(1, 1), in_queue, out_queue)
     OSError: Problem with I/O in game_logic
     SimulationError: (0, 0)
 
-* We can drive this multithreaded pipeline by calling `simulate_pipeline` in a loop:
+* We can drive this multithreading pipeline by calling `simulate_pipeline` in a loop:
 ```python
 class ColumnPrinter:
     ...
@@ -1932,7 +1932,7 @@ This works as expected. But not all the cases can be easily ported to the corout
 
 In previous example we moved from Threads to Coroutines in on jump. It might not be possible in real world, where you probably will need to gradually move from one to another, updating tests along the way to check that everything works as expected.
 
-In order to do that you will need to use Threads for blocking I/O and coroutines for async I/O at the same time. This means that threads need to run coroutines and coroutines need to start and wait for threads. Luckily, `acyncio` build-in has a valid options for that.
+In order to do that you will need to use Threads for blocking I/O and coroutines for async I/O at the same time. This means that threads need to run coroutines and coroutines need to start and wait for threads. Luckily, `asyncio` build-in has a valid options for that.
 
 For example, we want to merge all the log files into one big file, for debugging. We need a way to detect if the new information is available in the log file. We can use `tell` method from the file handle to check if the current read position matches the length of the file. When now data is there, an exception is raised.
 
@@ -2032,7 +2032,7 @@ async def run_tasks_mixed(handlers, interval, output_path):
             future = asyncio.run_coroutines_threadsafe(
                 coro, loop
             )
-            fututre.results()
+            future.results()
 
         tasks = []
         for handle in handles:
@@ -2209,7 +2209,7 @@ Other coroutines can tell the worker thread when to stop in a threadsafe manner 
         )
         await asyncio.wrap_future(future)
 ```
-We can also define the `__aenter__` and `__aexit__` methods to allow this class to be used in `with` statement. This will ensure that the worker thread starts and stops at the right time without slowwing down the main even loop thread:
+We can also define the `__aenter__` and `__aexit__` methods to allow this class to be used in `with` statement. This will ensure that the worker thread starts and stops at the right time without slowing down the main even loop thread:
 ```python
     async def __aenter__(self):
         loop = asyncio.get_event_loop()
@@ -2352,5 +2352,4 @@ For other types of the tasks the `multiprocessing` overhead might prevent signif
 So it is generally suggested to initially avoid using `multiprocessing` directly and start with `TheadPoolExecutor` and `ProcessPoolExecutor` instead. Only after all the means are exhausted, one should start using `multiprocessing` directly.
 
 # 
-
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)

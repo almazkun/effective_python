@@ -736,7 +736,7 @@ The metaclass has access to the class, the parent classes (`bases`) and all the 
      'other': 567, 
      'bar': <function MySubclass.bar at 0x0000022D3520EC18>}
 
-* We can add functionality to the `Meta.__new__` method in order to validate all of the parameters of an associated class before it's defined. For example, we want te represent any type of multisided polygon. It can be done by defining a special validating metaclass and using it in the base class of my polygon class hierarchy. Note, it is important not to apply same validation to the base class.
+* We can add functionality to the `Meta.__new__` method in order to validate all of the parameters of an associated class before it's defined. For example, we want te represent any type of multi sided polygon. It can be done by defining a special validating metaclass and using it in the base class of my polygon class hierarchy. Note, it is important not to apply same validation to the base class.
 ```python
 class ValidatePolygon(type):
     def __new__(meta, name, bases, class_dict):
