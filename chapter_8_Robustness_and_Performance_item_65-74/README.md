@@ -196,5 +196,27 @@ divide_json(temp_path)
     Traceback ...
     OSError: [Errno 28] No space left on device
 
+## Item 66: Consider `contextlib` and `with` Statements for Reuseable `try/finally` Behavior
+
+The `with` statement is used to indicated when code runs in a special context, i.e. mutual-exclusion locks can be used in `with` statement to indicated that this code runs only while the lock is held:
+```py
+from threading import Lock
+
+
+lock = Lock()
+
+with lock:
+    # do something while maintaining invariant
+```
+
+This is equivalent to `try/finally` construction:
+```py
+lock.acquire()
+try:
+    # do something while maintaining invariant
+finally:
+    lock.release()
+```
+
 #   
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
