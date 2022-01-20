@@ -1,33 +1,23 @@
-import json
+import logging
+from contextlib import contextmanager
 
-UNDEFINED = object()
-
-
-def divide_json(path):
-    print(" * Open file")
-    handle = open(path, "r+")  # OSError may happen
+@contextmanager
+def log_level(level, name):
+    logger = logging.getLogger(name)
+    old_level = logger.getEffectiveLevel()
+    logger.setLevel(level)
     try:
-        print(" * Read file")
-        data = handle.read()  # UnicodeDecodeError may happen
-        print(" * Parse JSON")
-        op = json.loads(data)  # ValueError may happen
-        print(" * Divide")
-        value = op["numerator"] / op["denominator"]  # ZeroDivisionError may happen
-    except ZeroDivisionError as e:
-        print(" * Handling ZeroDivisionError")
-        return UNDEFINED
-    else:
-        print(" * Update file")
-        op["result"] = value
-        result = json.dumps(op)
-        handle.seek(0)  # OSError may happen
-        handle.write(result)  # OSError may happen
-        return value
+        yield logger
     finally:
-        print(" * Close file")
-        handle.close()  # Always executed
+        logger.setLevel(old_level)
 
+with log_level(logging.DEBUG, "my_log") as logger:
+    l = logging.getLogger()
+    print(l.getEffectiveLevel())
+    l.setLevel(logging.WARNING)
+    logging.error("error")
+    print(l.getEffectiveLevel())
+    logger.debug(f" * This will be printed to the {logger.name} logger!")
+    logging.debug("This printed will not")
 
-temp_path = "random_data.json"
-
-divide_json(temp_path)
+print("done")

@@ -217,6 +217,81 @@ try:
 finally:
     lock.release()
 ```
+`with` statements if a handy tool ro remove repetitive blocks of code and not to forget to something to close or release or clean up. 
+
+It is easy to make your objects and functions to work with `with` statement by using `contextlib.contextmanager` decorator.
+
+For example temporary change debug lvl:
+```py
+import logging
+
+
+def my_function():
+    logging.debug(" * Debug data")
+    logging.error(" * Error data")
+    logging.debug(" * More debug data")
+```
+Default log level is INFO, so the only error data will be logged.
+```py
+my_function()
+```
+    >>>
+    ERROR:root: * Error data
+
+Here we can change log level quickly and restore it back with no effort:
+```py
+@contextmanager
+def debug_logging(level):
+    old_level = logging.getLogger().getEffectiveLevel()
+    logging.getLogger().setLevel(level)
+    try:
+        yield
+    finally:
+        logging.getLogger().setLevel(old_level)
+
+with debug_logging(logging.DEBUG):
+    print(" * Inside")
+    my_function()
+
+print(" * Outside")
+my_function()
+```
+    >>>
+     * Inside
+    DEBUG:root: * Debug data
+    ERROR:root: * Error data
+    DEBUG:root: * More debug data
+    * Outside
+    ERROR:root: * Error data
+
+### Using `with` Targets
+The context manager passed to a `with` statement can also return object, this object is assigned to the local variable in the `as` part of the `with` statement. This gives you an ability to directly interact with context manager. 
+
+Common example is interaction with files:
+```py
+with open("data.json", "w") as f:
+    f.write("Data to be written to the file")
+```
+To enable this functionality in your logger example we need change `yield` part:
+```py
+
+@contextmanager
+def log_level(level, name):
+    logger = logging.getLogger(name)
+    old_level = logger.getEffectiveLevel()
+    logger.setLevel(level)
+    try:
+        yield logger
+    finally:
+        logger.setLevel(old_level)
+```
+Calling logging methods like `DEBUG` on the `as` target produces output because the logging severity level is low enough in the `with` block on that specific logger instance. Using the `logging` module directly won't print anything because the global severity level is set to `WARNING`.
+```py
+with log_level(Logging.DEBUG, "my_log") as logger:
+    logger.debug(f" * This will be printed to the {name} logger!")
+    logging.debug("This printed will not")
+```
+    
 
 #   
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
