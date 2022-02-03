@@ -274,6 +274,13 @@ with open("data.json", "w") as f:
 ```
 To enable this functionality in your logger example we need change `yield` part:
 ```py
+import sys
+import logging
+from contextlib import contextmanager
+
+
+logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+
 
 @contextmanager
 def log_level(level, name):
@@ -287,11 +294,34 @@ def log_level(level, name):
 ```
 Calling logging methods like `DEBUG` on the `as` target produces output because the logging severity level is low enough in the `with` block on that specific logger instance. Using the `logging` module directly won't print anything because the global severity level is set to `WARNING`.
 ```py
-with log_level(Logging.DEBUG, "my_log") as logger:
-    logger.debug(f" * This will be printed to the {name} logger!")
-    logging.debug("This printed will not")
+with log_level(logging.DEBUG, "my_log") as logger:
+    logger.debug(f" * This is a message for {logger.name}!")
+    logging.debug("This will not print")
 ```
-    
+    >>>
+    DEBUG:my_log: * This is a message for my_log!
 
-#   
+However, calling `logging` directly will not print the message:
+```py
+logger = logging.getLogger("my_log")
+logger.debug("Debug will not print")
+logger.error("Error will print")
+```
+    >>>
+    ERROR:my_log:Error will print
+
+Also, renaming of the logger is also made easy:
+```py 
+with log_level(logging.DEBUG, 'other-log') as logger:
+    logger.debug(f'This is a message for {logger.name}!')
+    logging.debug('This will not print')
+```
+    >>>
+    DEBUG:other-log:This is a message for other-log!
+
+
+## Item 67: Use `datetime` Instead of `time` for Local Clock
+
+    
+# 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
