@@ -322,6 +322,46 @@ with log_level(logging.DEBUG, 'other-log') as logger:
 
 ## Item 67: Use `datetime` Instead of `time` for Local Clock
 
-    
+Coordinated Universal Time (UTC) is the standard, time-zone-independent representation of time. UTC works great for computers that represent time in seconds since the Unix epoch (00:00:00 UTC on 1 January 1970). But for less perfect humans it is not working well. Humans need to know time in their current time zone otherwise they got very confused. This creates a need for  unnecessary conversion of the human time (8 am) to normal time (UTC 23:00 plus 9 hours). If you program handles time, you will find yourself doing this conversion many times, still leaving humans confused. 
+
+Python provides two ways of accomplishing time zone conversion. The old way, using `time` build-in module, is terrible error prone. the new way, using `datetime` module, is much better. 
+
+Lets look at `time` and `datetime` modules to understand whe the latter is better.
+
+### The `time` Module
+`localtime`function from `time` build-in module provides a way to convert UNIX time to host machine's local time. `strftime` could be used to make it human readable.
+```py
+import time
+
+
+now = time.time()
+
+local_time = time.localtime(now)
+time_format = "%Y-%m-%d %H:%M:%S"
+time_str = time.strftime(time_format, local_time)
+print(time_str)
+```
+    >>>
+    2022-09-14 18:32:55
+
+Often you will need to reverse it, from human readable to UNIX time stamp. One can use `strptime` to convert time string to local time and then use `mktime` to convert local time to UNIX timestamp.
+```py
+import time
+
+
+time_str = "2022-09-14 18:32:55"
+
+time_format = "%Y-%m-%d %H:%M:%S"
+local_time = time.strptime(time_str, time_format)
+utc_now = time.mktime(local_time)
+print(utc_now)
+```
+    >>>
+    1663147975.0
+
+
+Also, often, it will be needed to convert one local time from one time zone to local time in another time zone. For example, I have a flight from Seoul to Vancouver and want to know what time it will be in Seoul when I arrive in Vancouver.
+
+It will be a bad idea to convert time manually since it happens to be on the hardest and complex problems in CS. 
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
