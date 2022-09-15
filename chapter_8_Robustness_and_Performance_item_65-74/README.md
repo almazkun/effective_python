@@ -337,7 +337,7 @@ import time
 now = time.time()
 
 local_time = time.localtime(now)
-time_format = "%Y-%m-%d %H:%M:%S"
+time_format = "%Y-%m-%d %H:%M:%S %Z"
 time_str = time.strftime(time_format, local_time)
 print(time_str)
 ```
@@ -363,5 +363,46 @@ print(utc_now)
 Also, often, it will be needed to convert one local time from one time zone to local time in another time zone. For example, I have a flight from Seoul to Vancouver and want to know what time it will be in Seoul when I arrive in Vancouver.
 
 It will be a bad idea to convert time manually since it happens to be on the hardest and complex problems in CS. 
+
+Some operating systems have capability to work with time zones. `time` module lets use this capabilities:
+```py
+import time
+import os
+
+
+if os.name == "nt":
+    print("no luck here")
+else:
+    parse_format = "%Y-%m-%d %H:%M:%S %Z"
+    depart_ich = "2022-09-15 15:19:32 KST"
+    time_format = "%Y-%m-%d %H:%M:%S"
+    local_time = time.strptime(depart_ich, parse_format)
+    time_str = time.strftime(time_format, local_time)
+    print(time_str)
+```
+    >>>
+    2022-09-15 15:19:32
+
+After seeing that, one might conclude that it will be possible to work with other time zones similarly:
+```py
+import time
+import os
+
+
+if os.name == "nt":
+    print("no luck here")
+else:
+    parse_format = "%Y-%m-%d %H:%M:%S %Z"
+    depart_ich = "2022-09-15 15:19:32 PDT"
+    time_format = "%Y-%m-%d %H:%M:%S"
+    local_time = time.strptime(depart_ich, parse_format)
+    time_str = time.strftime(time_format, local_time)
+    print(time_str)
+```
+    >>>
+    Traceback (most recent call last):
+      ...
+        raise ValueError("time data %r does not match format %r" %
+    ValueError: time data '2022-09-15 15:19:32 PST' does not match format '%Y-%m-%d %H:%M:%S %Z'
 # 
 * [Back to repo](https://github.com/almazkun/effective_python#effective_python)
