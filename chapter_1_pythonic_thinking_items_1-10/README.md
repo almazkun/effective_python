@@ -50,10 +50,9 @@ Find the one, and/or only one obvious way to do it.
 * ``from bar import foo`` always use absolute names
 * ``from . import foo`` for relative import
 * Section imports in the following order:
-    1. standard library
-    2. modules
-    3. 3rd-party modules
-    4. your own modules
+    1. standard library modules
+    2. 3rd-party modules
+    3. your own modules
 
 ## Item 3: Know the Differences Between ``bytes`` and ``str``
 
